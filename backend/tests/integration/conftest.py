@@ -12,6 +12,8 @@ from app.accounts.models import Account  # noqa: F401
 from app.auth.password import hash_password
 from app.config import get_settings
 from app.db.base import Base
+from app.library.models import LibraryItem  # noqa: F401
+from app.tasks.models import TaskRecord  # noqa: F401
 
 
 @pytest.fixture(scope="session")
