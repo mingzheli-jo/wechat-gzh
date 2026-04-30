@@ -31,6 +31,7 @@
 - 多 AI Provider 接入（OpenAI 兼容协议统一）
 - 多公众号管理
 - 单用户登录
+- 本地敏感词黑名单（合规审核兜底）
 - Docker Compose 一键部署
 
 **不包含**（后续迭代）：
@@ -240,7 +241,7 @@ PostgreSQL 主要表结构。
 
 - **`ai_providers`**：`{id, name, api_key (加密), base_url, model_list (jsonb), enabled}`
 - **`role_bindings`**：`{role: 'writer'|'reviewer'|'lite', provider_id, model}`
-- **`sensitive_words`**（二期）：本地敏感词黑名单
+- **`sensitive_words`**：本地敏感词黑名单（一期，作为合规审核兜底）
 - **`ai_usage`**：每次 AI 调用的 token / cost 记录（按天聚合 + 按 provider 聚合）
 - **`settings`**：全局配置（账号密码哈希、JWT secret 等）
 
