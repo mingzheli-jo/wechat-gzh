@@ -13,6 +13,7 @@ from alembic import context
 from app.accounts.models import Account  # noqa: F401
 from app.config import get_settings
 from app.db.base import Base
+from app.library.models import LibraryItem  # noqa: F401
 from app.tasks.models import TaskRecord  # noqa: F401
 
 config = context.config
