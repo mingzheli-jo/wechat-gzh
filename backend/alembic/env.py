@@ -12,7 +12,7 @@ from app.config import get_settings
 from app.db.base import Base
 
 # Imports of model modules (added per-stage as models are introduced):
-# from app.accounts.models import Account  # noqa: F401
+from app.accounts.models import Account  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", get_settings().database_url)
