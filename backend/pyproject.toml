@@ -26,6 +26,11 @@ line-length = 100
 target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "N"]
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Depends", "fastapi.Query", "fastapi.Path",
+    "fastapi.Body", "fastapi.Header", "fastapi.Form", "fastapi.File",
+]
 
 [tool.mypy]
 python_version = "3.12"
