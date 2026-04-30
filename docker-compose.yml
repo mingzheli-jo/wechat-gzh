@@ -36,6 +36,19 @@ services:
     ports:
       - "8000:8000"
 
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - image_data:/data/images
+
   web:
     build:
       context: .
@@ -48,3 +61,4 @@ services:
 volumes:
   pg_data:
   redis_data:
+  image_data:
