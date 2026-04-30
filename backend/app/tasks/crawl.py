@@ -2,6 +2,7 @@ import asyncio
 import logging
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -57,5 +58,5 @@ async def _do_crawl(item_id: uuid.UUID) -> None:
     max_retries=2,
     default_retry_delay=10,
 )
-def crawl_library_item(self, item_id: str) -> None:
+def crawl_library_item(self: Any, item_id: str) -> None:
     asyncio.run(_do_crawl(uuid.UUID(item_id)))
