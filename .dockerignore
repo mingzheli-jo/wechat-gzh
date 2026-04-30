@@ -1,0 +1,16 @@
+**/node_modules
+**/__pycache__
+**/.venv
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/dist
+.env
+.env.local
+.git
+.gitignore
+.omc
+**/.omc
+backend/wechat_rewriter_backend.egg-info
+frontend/dist
+docs
