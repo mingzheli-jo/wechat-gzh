@@ -11,6 +11,9 @@ backend/.venv/
 # Node
 frontend/node_modules/
 frontend/dist/
+e2e-smoke/node_modules/
+e2e-smoke/test-results/
+e2e-smoke/playwright-report/
 
 # Testing & type checking caches
 .pytest_cache/
