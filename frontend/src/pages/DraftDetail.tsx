@@ -26,6 +26,15 @@ type Report = {
   overall_score: number | null;
 };
 
+type Img = {
+  id: string;
+  original_url: string;
+  wechat_url: string | null;
+  status: string;
+  is_cover: boolean;
+  error_msg: string | null;
+};
+
 const DIMS: { key: keyof Report; label: string }[] = [
   { key: "compliance", label: "合规" },
   { key: "originality", label: "原创度" },
@@ -46,6 +55,28 @@ export default function DraftDetail() {
     queryKey: ["draft-report", id],
     queryFn: async () => (await api.get<Report>(`/drafts/${id}/report`)).data,
     enabled: Boolean(detail.data?.review_report_id),
+  });
+
+  const images = useQuery({
+    queryKey: ["draft-images", id],
+    queryFn: async () =>
+      (await api.get<Img[]>(`/images/by-draft/${id}`)).data,
+    refetchInterval: 5000,
+  });
+
+  const setCover = useMutation({
+    mutationFn: async (imgId: string) => api.post(`/images/${imgId}/cover`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["draft-images", id] }),
+  });
+
+  const removeImg = useMutation({
+    mutationFn: async (imgId: string) => api.delete(`/images/${imgId}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["draft-images", id] }),
+  });
+
+  const publish = useMutation({
+    mutationFn: async () => api.post(`/drafts/${id}/publish-to-wechat`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["draft", id] }),
   });
 
   const [title, setTitle] = useState("");
@@ -119,6 +150,63 @@ export default function DraftDetail() {
           </div>
         </div>
       )}
+
+      {images.data && images.data.length > 0 && (
+        <div>
+          <h2 className="font-medium mb-2">图片复核</h2>
+          <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+            {images.data.map((img) => (
+              <div
+                key={img.id}
+                className={`border rounded p-2 ${
+                  img.is_cover ? "ring-2 ring-blue-500" : ""
+                }`}
+              >
+                <img
+                  src={img.wechat_url ?? img.original_url}
+                  className="w-full h-32 object-cover rounded"
+                />
+                <div className="text-xs mt-1 text-slate-600">
+                  {img.status}
+                  {img.is_cover ? " · 封面" : ""}
+                </div>
+                {img.error_msg && (
+                  <div className="text-xs text-red-600">{img.error_msg}</div>
+                )}
+                <div className="flex gap-2 mt-2 text-xs">
+                  <button
+                    onClick={() => setCover.mutate(img.id)}
+                    disabled={img.is_cover}
+                    className="underline disabled:opacity-50"
+                  >
+                    设为封面
+                  </button>
+                  <button
+                    onClick={() => removeImg.mutate(img.id)}
+                    className="underline text-red-600"
+                  >
+                    删除
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={() => publish.mutate()}
+        disabled={
+          detail.data?.status === "published_to_wechat" || publish.isPending
+        }
+        className="bg-emerald-700 text-white px-4 py-2 rounded disabled:opacity-50"
+      >
+        {detail.data?.status === "published_to_wechat"
+          ? "已推送到微信"
+          : publish.isPending
+            ? "推送中..."
+            : "推送到微信草稿箱"}
+      </button>
     </div>
   );
 }
