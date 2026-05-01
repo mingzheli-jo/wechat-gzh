@@ -13,6 +13,7 @@ from app.ai_providers.models import AIProvider, AIUsage, RoleBinding  # noqa: F4
 from app.auth.password import hash_password
 from app.config import get_settings
 from app.db.base import Base
+from app.drafts.models import Draft, ReviewReport  # noqa: F401
 from app.library.models import LibraryItem  # noqa: F401
 from app.tasks.models import TaskRecord  # noqa: F401
 
