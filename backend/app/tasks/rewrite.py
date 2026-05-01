@@ -35,11 +35,14 @@ SENSITIVE_WORDS_PATH = (
 
 
 async def _ensure_registry(session: AsyncSession) -> None:
-    registry = get_registry()
-    try:
-        registry.role("writer")
-    except RegistryError:
-        await load_from_db(session)
+    """Reload registry from DB on every call.
+
+    This is intentional: the API container's registry hot-reloads on PUT
+    /role-bindings, but the worker process's registry is a separate in-memory
+    instance and would otherwise hold stale provider/key data after binding
+    edits. The cost is cheap (a couple of SELECTs per task).
+    """
+    await load_from_db(session)
 
 
 async def _rewrite_with_session(
