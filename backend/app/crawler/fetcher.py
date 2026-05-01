@@ -36,6 +36,11 @@ async def fetch_html(
                 await asyncio.sleep(2**attempt)
                 continue
             if response.status_code == 200:
+                if "wappoc_appmsgcaptcha" in str(response.url):
+                    raise FetchError(
+                        "WeChat anti-bot captcha triggered "
+                        "(redirected to wappoc_appmsgcaptcha)"
+                    )
                 return response.text
             raise FetchError(f"HTTP {response.status_code}")
         except httpx.TimeoutException as exc:

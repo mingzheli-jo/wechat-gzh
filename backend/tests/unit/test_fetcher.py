@@ -24,6 +24,25 @@ async def test_fetch_html_404_raises():
 
 
 @pytest.mark.asyncio
+async def test_fetch_html_detects_wechat_captcha_redirect():
+    async with respx.mock() as mock:
+        mock.get("https://mp.weixin.qq.com/s/captcha-test").mock(
+            return_value=httpx.Response(
+                302,
+                headers={
+                    "Location": "https://mp.weixin.qq.com/mp/wappoc_appmsgcaptcha?poc_token=x"
+                },
+            )
+        )
+        mock.get(
+            "https://mp.weixin.qq.com/mp/wappoc_appmsgcaptcha",
+            params={"poc_token": "x"},
+        ).mock(return_value=httpx.Response(200, text="<html>captcha page</html>"))
+        with pytest.raises(FetchError, match="captcha"):
+            await fetch_html("https://mp.weixin.qq.com/s/captcha-test")
+
+
+@pytest.mark.asyncio
 async def test_fetch_html_retries_on_5xx():
     async with respx.mock(base_url="https://mp.weixin.qq.com") as mock:
         route = mock.get("/s/y")
