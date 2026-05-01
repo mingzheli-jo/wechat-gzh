@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
 import { api } from "../api/client";
+import { Badge, Button, EmptyState, PageSpinner } from "../components/ui";
 
 type LibraryStatus = "pending" | "processing" | "done" | "failed";
 
@@ -17,11 +17,18 @@ type LibraryItem = {
 
 type AccountMin = { id: string; name: string };
 
-const STATUS_COLOR: Record<LibraryStatus, string> = {
-  pending: "bg-slate-200",
-  processing: "bg-blue-200",
-  done: "bg-green-200",
-  failed: "bg-red-200",
+const STATUS_BADGE: Record<LibraryStatus, "pending" | "processing" | "done" | "failed"> = {
+  pending: "pending",
+  processing: "processing",
+  done: "done",
+  failed: "failed",
+};
+
+const STATUS_LABEL: Record<LibraryStatus, string> = {
+  pending: "待抓取",
+  processing: "抓取中",
+  done: "完成",
+  failed: "失败",
 };
 
 export default function Library() {
@@ -45,20 +52,15 @@ export default function Library() {
 
   const ingest = useMutation({
     mutationFn: async () => {
-      const urls = text
-        .split("\n")
-        .map((u) => u.trim())
-        .filter(Boolean);
+      const urls = text.split("\n").map((u) => u.trim()).filter(Boolean);
       return api.post("/library", {
         urls,
-        tags: tags
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean),
+        tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
       });
     },
     onSuccess: () => {
       setText("");
+      setTags("");
       qc.invalidateQueries({ queryKey: ["library"] });
     },
   });
@@ -81,129 +83,407 @@ export default function Library() {
   });
 
   function toggle(id: string) {
-    const next = new Set(selected);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelected(next);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
+  const urlCount = text.split("\n").filter((l) => l.trim()).length;
+
   return (
-    <div className="p-8 space-y-6 pb-32">
-      <h1 className="text-2xl font-semibold">素材库</h1>
-
-      <div className="space-y-3 border rounded p-4">
-        <h2 className="font-medium">添加文章 URL（一行一个）</h2>
-        <textarea
-          className="w-full border rounded p-2 h-32 font-mono text-sm"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="https://mp.weixin.qq.com/s/..."
-        />
-        <input
-          className="w-full border rounded p-2"
-          placeholder="标签（逗号分隔，如 职场,母婴）"
-          value={tags}
-          onChange={(e) => setTags(e.target.value)}
-        />
-        <button
-          onClick={() => ingest.mutate()}
-          disabled={ingest.isPending || !text.trim()}
-          className="bg-slate-900 text-white px-4 py-2 rounded disabled:opacity-50"
+    <div
+      style={{
+        maxWidth: "var(--max-content)",
+        margin: "0 auto",
+        padding: "var(--space-8) var(--space-8) var(--space-20)",
+      }}
+    >
+      {/* Page header */}
+      <div style={{ marginBottom: "var(--space-8)" }}>
+        <h1
+          style={{
+            fontSize: "var(--text-xl)",
+            fontWeight: "var(--weight-semi)",
+            color: "var(--color-ink)",
+            letterSpacing: "-0.02em",
+            margin: 0,
+          }}
         >
-          {ingest.isPending ? "提交中..." : "添加抓取"}
-        </button>
+          素材库
+        </h1>
+        <p style={{ fontSize: "var(--text-sm)", color: "var(--color-ink-3)", marginTop: "var(--space-1)" }}>
+          粘贴微信公众号文章链接，抓取后选择目标公众号批量改写
+        </p>
       </div>
 
-      <div>
-        <h2 className="font-medium mb-2">列表</h2>
-        {isLoading && <div>加载中...</div>}
-        <ul className="space-y-2">
-          {data?.map((item) => (
-            <li key={item.id} className="border rounded p-3">
-              <div className="flex justify-between items-start gap-4">
-                <input
-                  type="checkbox"
-                  className="mt-1"
-                  disabled={item.status !== "done"}
-                  checked={selected.has(item.id)}
-                  onChange={() => toggle(item.id)}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-medium">
-                    {item.original_title || item.source_url}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "var(--space-6)", alignItems: "start" }}>
+        {/* Input panel */}
+        <div
+          style={{
+            backgroundColor: "var(--color-white)",
+            border: "1px solid var(--color-surface-3)",
+            borderRadius: "var(--radius-lg)",
+            padding: "var(--space-5)",
+            position: "sticky",
+            top: "calc(var(--nav-height) + var(--space-6))",
+          }}
+        >
+          <h2
+            style={{
+              fontSize: "var(--text-sm)",
+              fontWeight: "var(--weight-semi)",
+              color: "var(--color-ink)",
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              margin: "0 0 var(--space-4) 0",
+            }}
+          >
+            添加文章
+          </h2>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+            <div>
+              <label
+                htmlFor="urls"
+                style={{
+                  display: "block",
+                  fontSize: "var(--text-sm)",
+                  fontWeight: "var(--weight-medium)",
+                  color: "var(--color-ink-2)",
+                  marginBottom: "var(--space-1)",
+                }}
+              >
+                文章 URL
+                <span style={{ color: "var(--color-ink-4)", fontWeight: "var(--weight-normal)", marginLeft: "var(--space-2)" }}>
+                  一行一个
+                </span>
+              </label>
+              <textarea
+                id="urls"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder={"https://mp.weixin.qq.com/s/...\nhttps://mp.weixin.qq.com/s/..."}
+                rows={6}
+                style={{
+                  width: "100%",
+                  padding: "var(--space-3)",
+                  fontSize: "var(--text-xs)",
+                  fontFamily: "var(--font-mono)",
+                  color: "var(--color-ink)",
+                  backgroundColor: "var(--color-surface-2)",
+                  border: "1px solid var(--color-surface-3)",
+                  borderRadius: "var(--radius-md)",
+                  outline: "none",
+                  resize: "vertical",
+                  lineHeight: "var(--leading-normal)",
+                  transition: "border-color var(--dur-fast)",
+                  boxSizing: "border-box",
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = "var(--color-ink)"; e.currentTarget.style.backgroundColor = "var(--color-white)"; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = "var(--color-surface-3)"; e.currentTarget.style.backgroundColor = "var(--color-surface-2)"; }}
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="tags"
+                style={{
+                  display: "block",
+                  fontSize: "var(--text-sm)",
+                  fontWeight: "var(--weight-medium)",
+                  color: "var(--color-ink-2)",
+                  marginBottom: "var(--space-1)",
+                }}
+              >
+                标签
+                <span style={{ color: "var(--color-ink-4)", fontWeight: "var(--weight-normal)", marginLeft: "var(--space-2)" }}>
+                  逗号分隔，选填
+                </span>
+              </label>
+              <input
+                id="tags"
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                placeholder="职场, 母婴, 健康"
+                style={{
+                  width: "100%",
+                  padding: "var(--space-2) var(--space-3)",
+                  fontSize: "var(--text-sm)",
+                  color: "var(--color-ink)",
+                  backgroundColor: "var(--color-surface-2)",
+                  border: "1px solid var(--color-surface-3)",
+                  borderRadius: "var(--radius-md)",
+                  outline: "none",
+                  transition: "border-color var(--dur-fast)",
+                  boxSizing: "border-box",
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = "var(--color-ink)"; e.currentTarget.style.backgroundColor = "var(--color-white)"; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = "var(--color-surface-3)"; e.currentTarget.style.backgroundColor = "var(--color-surface-2)"; }}
+              />
+            </div>
+
+            <Button
+              onClick={() => ingest.mutate()}
+              disabled={!text.trim()}
+              loading={ingest.isPending}
+              style={{ width: "100%", marginTop: "var(--space-1)" }}
+            >
+              {ingest.isPending ? "提交中…" : `添加抓取${urlCount > 0 ? `（${urlCount} 条）` : ""}`}
+            </Button>
+
+            {ingest.isError && (
+              <p style={{ fontSize: "var(--text-xs)", color: "var(--color-failed-fg)" }}>
+                提交失败，请重试
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* List panel */}
+        <div>
+          {isLoading ? (
+            <PageSpinner />
+          ) : !data || data.length === 0 ? (
+            <EmptyState
+              icon={
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                  <rect x="8" y="10" width="24" height="22" rx="3" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M14 17h12M14 22h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              }
+              title="素材库为空"
+              description="在左侧粘贴文章链接开始抓取"
+            />
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+              {data.map((item, i) => (
+                <div
+                  key={item.id}
+                  style={{
+                    backgroundColor: "var(--color-white)",
+                    border: `1px solid ${selected.has(item.id) ? "var(--color-ink)" : "var(--color-surface-3)"}`,
+                    borderRadius: "var(--radius-lg)",
+                    padding: "var(--space-4) var(--space-5)",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "var(--space-4)",
+                    transition: "border-color var(--dur-fast), box-shadow var(--dur-fast)",
+                    cursor: item.status === "done" ? "pointer" : "default",
+                    animation: `fade-in var(--dur-normal) ${i * 30}ms var(--ease-out) both`,
+                    boxShadow: selected.has(item.id) ? "0 0 0 2px var(--color-ink)" : "none",
+                  }}
+                  onClick={() => item.status === "done" && toggle(item.id)}
+                >
+                  {/* Checkbox */}
+                  <div style={{ paddingTop: "2px", flexShrink: 0 }}>
+                    <input
+                      type="checkbox"
+                      disabled={item.status !== "done"}
+                      checked={selected.has(item.id)}
+                      onChange={() => toggle(item.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        width: "16px",
+                        height: "16px",
+                        cursor: item.status === "done" ? "pointer" : "not-allowed",
+                        accentColor: "var(--color-ink)",
+                      }}
+                      aria-label={`选择 ${item.original_title ?? item.source_url}`}
+                    />
                   </div>
-                  <div className="text-xs text-slate-500 truncate">
-                    {item.source_url}
-                  </div>
-                  {item.tags?.length ? (
-                    <div className="text-xs text-slate-600 mt-1">
-                      {item.tags.map((t) => (
-                        <span
-                          key={t}
-                          className="inline-block bg-slate-100 px-2 py-0.5 rounded mr-1"
-                        >
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                  {item.error_msg && (
-                    <div className="text-xs text-red-600 mt-1">
-                      {item.error_msg}
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded ${STATUS_COLOR[item.status]}`}
-                  >
-                    {item.status}
-                  </span>
-                  {item.status === "failed" && (
-                    <button
-                      onClick={() => retry.mutate(item.id)}
-                      className="text-xs underline"
+
+                  {/* Content */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: "var(--text-sm)",
+                        fontWeight: "var(--weight-medium)",
+                        color: "var(--color-ink)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        marginBottom: "var(--space-1)",
+                      }}
                     >
-                      重试
-                    </button>
-                  )}
+                      {item.original_title ?? "（待抓取）"}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "var(--text-xs)",
+                        color: "var(--color-ink-3)",
+                        fontFamily: "var(--font-mono)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        marginBottom: item.tags?.length || item.error_msg ? "var(--space-2)" : 0,
+                      }}
+                    >
+                      {item.source_url}
+                    </div>
+
+                    {item.tags && item.tags.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-1)", marginTop: "var(--space-1)" }}>
+                        {item.tags.map((t) => (
+                          <Badge key={t} variant="outline">{t}</Badge>
+                        ))}
+                      </div>
+                    )}
+
+                    {item.error_msg && (
+                      <p
+                        style={{
+                          fontSize: "var(--text-xs)",
+                          color: "var(--color-failed-fg)",
+                          marginTop: "var(--space-1)",
+                          margin: "var(--space-1) 0 0",
+                        }}
+                      >
+                        {item.error_msg}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Status + action */}
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "var(--space-2)", flexShrink: 0 }}>
+                    <Badge variant={STATUS_BADGE[item.status]}>
+                      {item.status === "processing" && (
+                        <span
+                          style={{
+                            display: "inline-block",
+                            width: "6px",
+                            height: "6px",
+                            borderRadius: "50%",
+                            backgroundColor: "currentColor",
+                            animation: "pulse 1.2s ease-in-out infinite",
+                          }}
+                        />
+                      )}
+                      {STATUS_LABEL[item.status]}
+                    </Badge>
+                    {item.status === "failed" && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); retry.mutate(item.id); }}
+                        style={{
+                          fontSize: "var(--text-xs)",
+                          color: "var(--color-link)",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          padding: 0,
+                          textDecoration: "underline",
+                        }}
+                      >
+                        重试
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </li>
-          ))}
-        </ul>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* Bottom action bar */}
       {selected.size > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 flex items-center gap-3">
-          <span>当前选中 {selected.size} 篇</span>
+        <div
+          style={{
+            position: "fixed",
+            bottom: "var(--space-6)",
+            left: "50%",
+            transform: "translateX(-50%)",
+            backgroundColor: "var(--color-ink)",
+            color: "var(--color-accent-fg)",
+            borderRadius: "var(--radius-xl)",
+            padding: "var(--space-3) var(--space-4)",
+            display: "flex",
+            alignItems: "center",
+            gap: "var(--space-4)",
+            boxShadow: "var(--shadow-xl)",
+            animation: "slide-up var(--dur-slow) var(--ease-out) both",
+            zIndex: 30,
+            minWidth: "480px",
+          }}
+        >
+          <span style={{ fontSize: "var(--text-sm)", whiteSpace: "nowrap", flexShrink: 0 }}>
+            已选 <strong>{selected.size}</strong> 篇
+          </span>
+
           <select
-            className="border rounded px-2 py-1"
             value={accountId}
             onChange={(e) => setAccountId(e.target.value)}
+            style={{
+              flex: 1,
+              minWidth: "160px",
+              padding: "var(--space-2) var(--space-3)",
+              fontSize: "var(--text-sm)",
+              color: selected.size > 0 && !accountId ? "rgba(255,255,255,0.4)" : "var(--color-white)",
+              backgroundColor: "rgba(255,255,255,0.1)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: "var(--radius-md)",
+              outline: "none",
+              cursor: "pointer",
+            }}
           >
-            <option value="">— 选公众号 —</option>
+            <option value="" style={{ color: "var(--color-ink)", backgroundColor: "var(--color-white)" }}>
+              选择目标公众号
+            </option>
             {accounts.data?.map((a) => (
-              <option key={a.id} value={a.id}>
+              <option
+                key={a.id}
+                value={a.id}
+                style={{ color: "var(--color-ink)", backgroundColor: "var(--color-white)" }}
+              >
                 {a.name}
               </option>
             ))}
           </select>
-          <button
+
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => triggerRewrite.mutate()}
-            disabled={!accountId || triggerRewrite.isPending}
-            className="ml-auto bg-slate-900 text-white px-4 py-2 rounded disabled:opacity-50"
+            disabled={!accountId}
+            loading={triggerRewrite.isPending}
+            style={{
+              backgroundColor: "var(--color-white)",
+              color: "var(--color-ink)",
+              border: "none",
+              flexShrink: 0,
+            }}
           >
-            {triggerRewrite.isPending ? "派发中..." : "开始改写"}
-          </button>
+            {triggerRewrite.isPending ? "派发中…" : "开始改写"}
+          </Button>
+
           <button
             onClick={() => setSelected(new Set())}
-            className="text-sm text-slate-500"
+            style={{
+              background: "none",
+              border: "none",
+              color: "rgba(255,255,255,0.5)",
+              fontSize: "var(--text-xs)",
+              cursor: "pointer",
+              padding: "var(--space-1)",
+              flexShrink: 0,
+            }}
+            aria-label="清空选择"
           >
-            清空选择
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M11 3L3 11M3 3l8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
           </button>
         </div>
       )}
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+      `}</style>
     </div>
   );
 }
