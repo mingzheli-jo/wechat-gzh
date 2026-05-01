@@ -11,6 +11,7 @@ from alembic import context
 
 # Imports of model modules (added per-stage as models are introduced):
 from app.accounts.models import Account  # noqa: F401
+from app.ai_providers.models import AIProvider, AIUsage, RoleBinding  # noqa: F401
 from app.config import get_settings
 from app.db.base import Base
 from app.library.models import LibraryItem  # noqa: F401

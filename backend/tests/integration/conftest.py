@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from testcontainers.postgres import PostgresContainer
 
 from app.accounts.models import Account  # noqa: F401
+from app.ai_providers.models import AIProvider, AIUsage, RoleBinding  # noqa: F401
 from app.auth.password import hash_password
 from app.config import get_settings
 from app.db.base import Base
