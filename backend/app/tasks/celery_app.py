@@ -12,6 +12,7 @@ celery_app = Celery(
         "app.tasks.crawl",
         "app.tasks.rewrite",
         "app.tasks.review",
+        "app.tasks.images",
     ],
 )
 

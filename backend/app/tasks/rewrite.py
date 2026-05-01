@@ -12,6 +12,7 @@ from app.accounts.models import Account
 from app.ai_providers.registry import RegistryError, get_registry, load_from_db
 from app.db.session import make_engine
 from app.drafts.models import Draft, DraftStatus, ReviewReport
+from app.images import service as image_service
 from app.library.models import LibraryItem
 from app.reviewer.aggregator import aggregate
 from app.reviewer.clickbait import review_clickbait
@@ -158,6 +159,13 @@ async def _do_rewrite(
             draft.review_report_id = report.id
             draft.status = DraftStatus.reviewed
             await session.commit()
+
+            if item.images:
+                await image_service.create_pending_for_draft(
+                    session,
+                    draft_id=draft.id,
+                    original_urls=[img["url"] for img in item.images],
+                )
         except Exception as exc:
             logger.exception("rewrite pipeline failed for draft %s", draft.id)
             draft.status = DraftStatus.failed
