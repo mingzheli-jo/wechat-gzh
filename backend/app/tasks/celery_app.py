@@ -10,6 +10,8 @@ celery_app = Celery(
     backend=settings.redis_url,
     include=[
         "app.tasks.crawl",
+        "app.tasks.rewrite",
+        "app.tasks.review",
     ],
 )
 
@@ -19,6 +21,8 @@ celery_app.conf.update(
     task_default_queue="default",
     task_routes={
         "app.tasks.crawl.*": {"queue": "crawl"},
+        "app.tasks.rewrite.*": {"queue": "rewrite"},
+        "app.tasks.review.*": {"queue": "review"},
     },
     worker_concurrency=settings.celery_worker_concurrency,
     broker_connection_retry_on_startup=True,
