@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-
 import { api } from "../api/client";
+import { Badge, Button, Card, Input, PageSpinner } from "../components/ui";
 
 type Provider = {
   id: string;
@@ -19,34 +19,45 @@ type Binding = {
   model: string;
 };
 
-type FormState = {
+type ProviderFormState = {
   name: string;
   base_url: string;
   api_key: string;
   models: string;
 };
 
-const FORM_KEYS: (keyof FormState)[] = ["name", "base_url", "api_key", "models"];
+const EMPTY_PROVIDER_FORM: ProviderFormState = {
+  name: "",
+  base_url: "",
+  api_key: "",
+  models: "",
+};
 
-export default function Settings() {
-  const qc = useQueryClient();
+const ROLE_LABELS: Record<Role, string> = {
+  writer: "改写",
+  reviewer: "审核",
+  lite: "轻量",
+};
 
-  const providers = useQuery({
-    queryKey: ["providers"],
-    queryFn: async () => (await api.get<Provider[]>("/ai-providers")).data,
-  });
-  const bindings = useQuery({
-    queryKey: ["bindings"],
-    queryFn: async () =>
-      (await api.get<Binding[]>("/ai-providers/role-bindings")).data,
-  });
+const ROLE_DESCRIPTIONS: Record<Role, string> = {
+  writer: "负责文章改写的主力模型",
+  reviewer: "负责内容审核与评分",
+  lite: "轻量任务（如标签生成）",
+};
 
-  const [form, setForm] = useState<FormState>({
-    name: "",
-    base_url: "",
-    api_key: "",
-    models: "",
-  });
+// ---- Provider form ----
+
+interface ProviderFormProps {
+  onSuccess: () => void;
+}
+
+function ProviderForm({ onSuccess }: ProviderFormProps) {
+  const [form, setForm] = useState<ProviderFormState>(EMPTY_PROVIDER_FORM);
+  const [open, setOpen] = useState(false);
+
+  function set(field: keyof ProviderFormState, value: string) {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  }
 
   const create = useMutation({
     mutationFn: async () =>
@@ -58,72 +69,240 @@ export default function Settings() {
           .filter(Boolean),
       }),
     onSuccess: () => {
-      setForm({ name: "", base_url: "", api_key: "", models: "" });
-      qc.invalidateQueries({ queryKey: ["providers"] });
+      setForm(EMPTY_PROVIDER_FORM);
+      setOpen(false);
+      onSuccess();
     },
   });
 
-  const upsertBinding = useMutation({
-    mutationFn: async (b: Binding) =>
-      api.put("/ai-providers/role-bindings", b),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["bindings"] }),
-  });
+  if (!open) {
+    return (
+      <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
+        添加 Provider
+      </Button>
+    );
+  }
 
   return (
-    <div className="p-8 space-y-8 max-w-3xl">
-      <section>
-        <h2 className="text-xl font-semibold mb-3">AI 服务商</h2>
-        <ul className="space-y-2 mb-4">
-          {providers.data?.map((p) => (
-            <li key={p.id} className="border rounded p-3">
-              <div className="font-medium">{p.name}</div>
-              <div className="text-xs text-slate-500">{p.base_url}</div>
-              <div className="text-xs">
-                模型: {p.models.join(", ") || "(未配置)"}
-              </div>
-            </li>
-          ))}
-        </ul>
-        <div className="border rounded p-4 space-y-2">
-          <h3 className="font-medium">添加 Provider</h3>
-          {FORM_KEYS.map((k) => (
-            <input
-              key={k}
-              className="w-full border rounded px-3 py-2"
-              placeholder={k === "models" ? "模型列表（逗号分隔）" : k}
-              value={form[k]}
-              onChange={(e) => setForm({ ...form, [k]: e.target.value })}
-            />
-          ))}
-          <button
-            onClick={() => create.mutate()}
-            className="bg-slate-900 text-white px-4 py-2 rounded"
-          >
-            添加
-          </button>
-        </div>
-      </section>
+    <div
+      style={{
+        border: "1px solid var(--color-surface-3)",
+        borderRadius: "var(--radius-lg)",
+        padding: "var(--space-5)",
+        backgroundColor: "var(--color-surface-2)",
+        display: "flex",
+        flexDirection: "column",
+        gap: "var(--space-4)",
+      }}
+    >
+      <p
+        style={{
+          fontSize: "var(--text-sm)",
+          fontWeight: "var(--weight-semi)",
+          color: "var(--color-ink)",
+          margin: 0,
+        }}
+      >
+        新增 AI Provider
+      </p>
 
-      <section>
-        <h2 className="text-xl font-semibold mb-3">角色绑定</h2>
-        {(["writer", "reviewer", "lite"] as Role[]).map((role) => {
-          const current = bindings.data?.find((b) => b.role === role);
-          return (
-            <RoleRow
-              key={role}
-              role={role}
-              providers={providers.data ?? []}
-              current={current}
-              onSave={(b) => upsertBinding.mutate(b)}
-            />
-          );
-        })}
-      </section>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
+        <Input
+          label="名称"
+          value={form.name}
+          onChange={(e) => set("name", e.target.value)}
+          placeholder="例：Kimi"
+          required
+        />
+        <Input
+          label="Base URL"
+          value={form.base_url}
+          onChange={(e) => set("base_url", e.target.value)}
+          placeholder="https://api.moonshot.cn/v1"
+          style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)" }}
+        />
+      </div>
 
-      <UsageDashboard />
+      <Input
+        label="API Key"
+        type="password"
+        value={form.api_key}
+        onChange={(e) => set("api_key", e.target.value)}
+        placeholder="sk-..."
+        style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)" }}
+      />
+
+      <Input
+        label="模型列表"
+        value={form.models}
+        onChange={(e) => set("models", e.target.value)}
+        placeholder="moonshot-v1-8k, moonshot-v1-32k"
+        hint="逗号分隔"
+      />
+
+      {create.isError && (
+        <p style={{ fontSize: "var(--text-xs)", color: "var(--color-failed-fg)" }}>
+          添加失败，请检查填写内容后重试
+        </p>
+      )}
+
+      <div style={{ display: "flex", gap: "var(--space-2)" }}>
+        <Button
+          onClick={() => create.mutate()}
+          loading={create.isPending}
+          disabled={!form.name || !form.base_url || !form.api_key}
+        >
+          保存
+        </Button>
+        <Button variant="ghost" onClick={() => setOpen(false)} disabled={create.isPending}>
+          取消
+        </Button>
+      </div>
     </div>
   );
 }
+
+// ---- Role binding row ----
+
+interface RoleRowProps {
+  role: Role;
+  providers: Provider[];
+  current: Binding | undefined;
+  onSave: (b: Binding) => void;
+  isSaving: boolean;
+}
+
+function RoleRow({ role, providers, current, onSave, isSaving }: RoleRowProps) {
+  const [providerId, setProviderId] = useState(current?.provider_id ?? "");
+  const [model, setModel] = useState(current?.model ?? "");
+
+  const selectedProvider = providers.find((p) => p.id === providerId);
+
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "140px 1fr 1fr auto",
+        gap: "var(--space-3)",
+        alignItems: "end",
+        padding: "var(--space-4)",
+        backgroundColor: "var(--color-surface-2)",
+        borderRadius: "var(--radius-md)",
+        border: "1px solid var(--color-surface-3)",
+      }}
+    >
+      <div>
+        <p
+          style={{
+            fontSize: "var(--text-sm)",
+            fontWeight: "var(--weight-semi)",
+            color: "var(--color-ink)",
+            margin: "0 0 var(--space-1) 0",
+          }}
+        >
+          {ROLE_LABELS[role]}
+        </p>
+        <p
+          style={{
+            fontSize: "var(--text-xs)",
+            color: "var(--color-ink-3)",
+            margin: 0,
+            lineHeight: "var(--leading-snug)",
+          }}
+        >
+          {ROLE_DESCRIPTIONS[role]}
+        </p>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+        <label style={{ fontSize: "var(--text-xs)", fontWeight: "var(--weight-medium)", color: "var(--color-ink-2)" }}>
+          Provider
+        </label>
+        <select
+          value={providerId}
+          onChange={(e) => {
+            setProviderId(e.target.value);
+            setModel("");
+          }}
+          style={{
+            padding: "var(--space-2) var(--space-3)",
+            fontSize: "var(--text-sm)",
+            color: "var(--color-ink)",
+            backgroundColor: "var(--color-white)",
+            border: "1px solid var(--color-surface-3)",
+            borderRadius: "var(--radius-md)",
+            outline: "none",
+            cursor: "pointer",
+          }}
+        >
+          <option value="">— 选择 —</option>
+          {providers.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+        <label style={{ fontSize: "var(--text-xs)", fontWeight: "var(--weight-medium)", color: "var(--color-ink-2)" }}>
+          模型
+        </label>
+        {selectedProvider && selectedProvider.models.length > 0 ? (
+          <select
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            style={{
+              padding: "var(--space-2) var(--space-3)",
+              fontSize: "var(--text-sm)",
+              fontFamily: "var(--font-mono)",
+              color: "var(--color-ink)",
+              backgroundColor: "var(--color-white)",
+              border: "1px solid var(--color-surface-3)",
+              borderRadius: "var(--radius-md)",
+              outline: "none",
+              cursor: "pointer",
+            }}
+          >
+            <option value="">— 选择模型 —</option>
+            {selectedProvider.models.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            placeholder="模型 ID"
+            style={{
+              padding: "var(--space-2) var(--space-3)",
+              fontSize: "var(--text-sm)",
+              fontFamily: "var(--font-mono)",
+              color: "var(--color-ink)",
+              backgroundColor: "var(--color-white)",
+              border: "1px solid var(--color-surface-3)",
+              borderRadius: "var(--radius-md)",
+              outline: "none",
+            }}
+          />
+        )}
+      </div>
+
+      <Button
+        size="sm"
+        onClick={() => onSave({ role, provider_id: providerId, model })}
+        disabled={!providerId || !model}
+        loading={isSaving}
+      >
+        保存
+      </Button>
+    </div>
+  );
+}
+
+// ---- Usage dashboard ----
 
 type DailyUsage = {
   day: string;
@@ -160,125 +339,334 @@ function UsageDashboard() {
 
   if (!usage.data) return null;
   const u = usage.data;
-  const maxDay =
-    u.daily.reduce((m, d) => Math.max(m, d.cost_estimate), 0) || 1;
+  const maxDay = u.daily.reduce((m, d) => Math.max(m, d.cost_estimate), 0) || 1;
 
   return (
-    <section>
-      <h2 className="text-xl font-semibold mb-3">AI 用量（近 30 天）</h2>
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="border rounded p-3">
-          <div className="text-xs text-slate-500">总成本（估算）</div>
-          <div className="text-2xl font-semibold">
-            ${u.total_cost.toFixed(4)}
+    <section style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+      <h2
+        style={{
+          fontSize: "var(--text-lg)",
+          fontWeight: "var(--weight-semi)",
+          color: "var(--color-ink)",
+          letterSpacing: "-0.02em",
+          margin: 0,
+        }}
+      >
+        AI 用量
+      </h2>
+
+      {/* Summary cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-3)" }}>
+        {[
+          { label: "总成本（估算）", value: `$${u.total_cost.toFixed(4)}` },
+          { label: "Prompt tokens", value: u.total_prompt_tokens.toLocaleString() },
+          { label: "Completion tokens", value: u.total_completion_tokens.toLocaleString() },
+        ].map(({ label, value }) => (
+          <div
+            key={label}
+            style={{
+              padding: "var(--space-4) var(--space-5)",
+              backgroundColor: "var(--color-white)",
+              border: "1px solid var(--color-surface-3)",
+              borderRadius: "var(--radius-lg)",
+            }}
+          >
+            <p style={{ fontSize: "var(--text-xs)", color: "var(--color-ink-3)", margin: "0 0 var(--space-1) 0" }}>
+              {label}
+            </p>
+            <p
+              style={{
+                fontSize: "var(--text-2xl)",
+                fontWeight: "var(--weight-semi)",
+                color: "var(--color-ink)",
+                letterSpacing: "-0.02em",
+                margin: 0,
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {value}
+            </p>
+            <p style={{ fontSize: "var(--text-xs)", color: "var(--color-ink-4)", margin: "var(--space-1) 0 0 0" }}>
+              近 30 天
+            </p>
           </div>
-        </div>
-        <div className="border rounded p-3">
-          <div className="text-xs text-slate-500">Prompt tokens</div>
-          <div className="text-2xl font-semibold">
-            {u.total_prompt_tokens.toLocaleString()}
-          </div>
-        </div>
-        <div className="border rounded p-3">
-          <div className="text-xs text-slate-500">Completion tokens</div>
-          <div className="text-2xl font-semibold">
-            {u.total_completion_tokens.toLocaleString()}
-          </div>
-        </div>
+        ))}
       </div>
 
+      {/* Bar chart */}
       {u.daily.length > 0 && (
-        <div className="border rounded p-3 mb-4">
-          <div className="text-xs text-slate-500 mb-2">每日成本</div>
-          <div className="flex items-end gap-1 h-20">
+        <div
+          style={{
+            padding: "var(--space-5)",
+            backgroundColor: "var(--color-white)",
+            border: "1px solid var(--color-surface-3)",
+            borderRadius: "var(--radius-lg)",
+          }}
+        >
+          <p style={{ fontSize: "var(--text-xs)", fontWeight: "var(--weight-medium)", color: "var(--color-ink-3)", margin: "0 0 var(--space-4) 0", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            每日成本
+          </p>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: "3px", height: "64px" }}>
             {u.daily.map((d) => (
               <div
                 key={d.day}
-                className="flex-1 bg-slate-700 rounded-t"
-                style={{ height: `${(d.cost_estimate / maxDay) * 100}%` }}
                 title={`${d.day}: $${d.cost_estimate.toFixed(4)}`}
+                style={{
+                  flex: 1,
+                  height: `${Math.max(2, (d.cost_estimate / maxDay) * 100)}%`,
+                  backgroundColor: "var(--color-ink)",
+                  borderRadius: "2px 2px 0 0",
+                  opacity: d.cost_estimate > 0 ? 1 : 0.15,
+                  transition: "opacity var(--dur-fast)",
+                  cursor: "default",
+                }}
               />
             ))}
           </div>
-          <div className="flex justify-between text-xs text-slate-500 mt-1">
-            <span>{u.daily[0]?.day}</span>
-            <span>{u.daily[u.daily.length - 1]?.day}</span>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              marginTop: "var(--space-2)",
+            }}
+          >
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--color-ink-4)" }}>{u.daily[0]?.day}</span>
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--color-ink-4)" }}>
+              {u.daily[u.daily.length - 1]?.day}
+            </span>
           </div>
         </div>
       )}
 
+      {/* By-role table */}
       {u.by_role.length > 0 && (
-        <table className="w-full text-sm border">
-          <thead className="bg-slate-100">
-            <tr>
-              <th className="p-2 text-left">角色</th>
-              <th className="p-2 text-left">Provider/Model</th>
-              <th className="p-2 text-right">次数</th>
-              <th className="p-2 text-right">Tokens</th>
-              <th className="p-2 text-right">成本</th>
-            </tr>
-          </thead>
-          <tbody>
-            {u.by_role.map((r, i) => (
-              <tr key={i} className="border-t">
-                <td className="p-2">{r.role ?? "-"}</td>
-                <td className="p-2">
-                  {r.provider ?? "-"} / {r.model}
-                </td>
-                <td className="p-2 text-right">{r.calls}</td>
-                <td className="p-2 text-right">
-                  {(r.prompt_tokens + r.completion_tokens).toLocaleString()}
-                </td>
-                <td className="p-2 text-right">
-                  ${r.cost_estimate.toFixed(4)}
-                </td>
+        <div
+          style={{
+            backgroundColor: "var(--color-white)",
+            border: "1px solid var(--color-surface-3)",
+            borderRadius: "var(--radius-lg)",
+            overflow: "hidden",
+          }}
+        >
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-sm)" }}>
+            <thead>
+              <tr style={{ backgroundColor: "var(--color-surface-2)" }}>
+                {["角色", "Provider / 模型", "调用次数", "Tokens", "成本"].map((h, i) => (
+                  <th
+                    key={h}
+                    style={{
+                      padding: "var(--space-3) var(--space-4)",
+                      textAlign: i >= 2 ? "right" : "left",
+                      fontSize: "var(--text-xs)",
+                      fontWeight: "var(--weight-semi)",
+                      color: "var(--color-ink-3)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      borderBottom: "1px solid var(--color-surface-3)",
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {u.by_role.map((r, i) => (
+                <tr
+                  key={i}
+                  style={{ borderTop: i > 0 ? "1px solid var(--color-surface-2)" : "none" }}
+                >
+                  <td style={{ padding: "var(--space-3) var(--space-4)" }}>
+                    <Badge variant="default">{r.role ?? "—"}</Badge>
+                  </td>
+                  <td style={{ padding: "var(--space-3) var(--space-4)", fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: "var(--color-ink-2)" }}>
+                    {r.provider ?? "—"} / {r.model}
+                  </td>
+                  <td style={{ padding: "var(--space-3) var(--space-4)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                    {r.calls}
+                  </td>
+                  <td style={{ padding: "var(--space-3) var(--space-4)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                    {(r.prompt_tokens + r.completion_tokens).toLocaleString()}
+                  </td>
+                  <td style={{ padding: "var(--space-3) var(--space-4)", textAlign: "right", fontVariantNumeric: "tabular-nums", fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)" }}>
+                    ${r.cost_estimate.toFixed(4)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );
 }
 
-type RoleRowProps = {
-  role: Role;
-  providers: Provider[];
-  current: Binding | undefined;
-  onSave: (b: Binding) => void;
-};
+// ---- Main page ----
 
-function RoleRow({ role, providers, current, onSave }: RoleRowProps) {
-  const [providerId, setProviderId] = useState(current?.provider_id ?? "");
-  const [model, setModel] = useState(current?.model ?? "");
+export default function Settings() {
+  const qc = useQueryClient();
+
+  const providers = useQuery({
+    queryKey: ["providers"],
+    queryFn: async () => (await api.get<Provider[]>("/ai-providers")).data,
+  });
+
+  const bindings = useQuery({
+    queryKey: ["bindings"],
+    queryFn: async () =>
+      (await api.get<Binding[]>("/ai-providers/role-bindings")).data,
+  });
+
+  const [savingRole, setSavingRole] = useState<Role | null>(null);
+
+  const upsertBinding = useMutation({
+    mutationFn: async (b: Binding) => {
+      setSavingRole(b.role);
+      return api.put("/ai-providers/role-bindings", b);
+    },
+    onSuccess: () => {
+      setSavingRole(null);
+      qc.invalidateQueries({ queryKey: ["bindings"] });
+    },
+    onError: () => setSavingRole(null),
+  });
+
+  if (providers.isLoading) return <PageSpinner />;
+
   return (
-    <div className="border rounded p-3 mb-2 flex gap-2 items-center">
-      <span className="w-20 font-medium">{role}</span>
-      <select
-        className="border rounded px-2 py-1"
-        value={providerId}
-        onChange={(e) => setProviderId(e.target.value)}
-      >
-        <option value="">— 选 Provider —</option>
-        {providers.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-      </select>
-      <input
-        className="border rounded px-2 py-1"
-        placeholder="模型 ID"
-        value={model}
-        onChange={(e) => setModel(e.target.value)}
-      />
-      <button
-        className="ml-auto bg-slate-900 text-white px-3 py-1 rounded text-sm"
-        onClick={() => onSave({ role, provider_id: providerId, model })}
-        disabled={!providerId || !model}
-      >
-        保存
-      </button>
+    <div
+      style={{
+        maxWidth: "var(--max-narrow)",
+        margin: "0 auto",
+        padding: "var(--space-8)",
+        display: "flex",
+        flexDirection: "column",
+        gap: "var(--space-10)",
+      }}
+    >
+      {/* Page header */}
+      <div>
+        <h1
+          style={{
+            fontSize: "var(--text-xl)",
+            fontWeight: "var(--weight-semi)",
+            color: "var(--color-ink)",
+            letterSpacing: "-0.02em",
+            margin: 0,
+          }}
+        >
+          设置
+        </h1>
+        <p style={{ fontSize: "var(--text-sm)", color: "var(--color-ink-3)", marginTop: "var(--space-1)" }}>
+          AI 服务商配置与角色绑定
+        </p>
+      </div>
+
+      {/* AI Providers */}
+      <section style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+        <h2
+          style={{
+            fontSize: "var(--text-lg)",
+            fontWeight: "var(--weight-semi)",
+            color: "var(--color-ink)",
+            letterSpacing: "-0.02em",
+            margin: 0,
+          }}
+        >
+          AI 服务商
+        </h2>
+
+        {providers.data && providers.data.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+            {providers.data.map((p) => (
+              <Card key={p.id} padding="md">
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--space-4)" }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-1)" }}>
+                      <p
+                        style={{
+                          fontSize: "var(--text-base)",
+                          fontWeight: "var(--weight-medium)",
+                          color: "var(--color-ink)",
+                          margin: 0,
+                        }}
+                      >
+                        {p.name}
+                      </p>
+                      <Badge variant={p.enabled ? "done" : "default"}>
+                        {p.enabled ? "启用" : "停用"}
+                      </Badge>
+                    </div>
+                    <p
+                      style={{
+                        fontSize: "var(--text-xs)",
+                        fontFamily: "var(--font-mono)",
+                        color: "var(--color-ink-3)",
+                        margin: "0 0 var(--space-2) 0",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {p.base_url}
+                    </p>
+                    {p.models.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-1)" }}>
+                        {p.models.map((m) => (
+                          <Badge key={m} variant="outline">
+                            {m}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        <ProviderForm onSuccess={() => qc.invalidateQueries({ queryKey: ["providers"] })} />
+      </section>
+
+      {/* Role bindings */}
+      <section style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+        <div>
+          <h2
+            style={{
+              fontSize: "var(--text-lg)",
+              fontWeight: "var(--weight-semi)",
+              color: "var(--color-ink)",
+              letterSpacing: "-0.02em",
+              margin: "0 0 var(--space-1) 0",
+            }}
+          >
+            角色绑定
+          </h2>
+          <p style={{ fontSize: "var(--text-sm)", color: "var(--color-ink-3)", margin: 0 }}>
+            将不同 AI 任务角色绑定到特定 Provider 和模型
+          </p>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+          {(["writer", "reviewer", "lite"] as Role[]).map((role) => {
+            const current = bindings.data?.find((b) => b.role === role);
+            return (
+              <RoleRow
+                key={role}
+                role={role}
+                providers={providers.data ?? []}
+                current={current}
+                onSave={(b) => upsertBinding.mutate(b)}
+                isSaving={savingRole === role && upsertBinding.isPending}
+              />
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Usage dashboard */}
+      <UsageDashboard />
     </div>
   );
 }
