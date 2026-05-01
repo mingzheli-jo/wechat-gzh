@@ -24,6 +24,7 @@ e2e-smoke/playwright-report/
 htmlcov/
 .coverage
 
-# Application data
-data/
-backend/data/
+# Application data (runtime, e.g. crawled images) — but ship seed assets
+/data/
+backend/data/*
+!backend/data/sensitive_words.txt
