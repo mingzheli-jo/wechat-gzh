@@ -1,3 +1,117 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@import './styles/tokens.css';
+
+/* ---- Global base reset ---- */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--color-ink);
+  background-color: var(--color-surface);
+  margin: 0;
+  padding: 0;
+}
+
+/* ---- Focus visible ring ---- */
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+/* ---- Selection ---- */
+::selection {
+  background-color: var(--color-ink);
+  color: var(--color-accent-fg);
+}
+
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-3);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-surface-4);
+}
+
+/* ---- Utility animations ---- */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-fade-in {
+  animation: fade-in var(--dur-normal) var(--ease-out) both;
+}
+
+.animate-slide-up {
+  animation: slide-up var(--dur-slow) var(--ease-out) both;
+}
+
+.animate-scale-in {
+  animation: scale-in var(--dur-normal) var(--ease-out) both;
+}
+
+.animate-spin-slow {
+  animation: spin 1s linear infinite;
+}
+
+/* ---- Prose content (DraftDetail preview) ---- */
+.prose-preview {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-loose);
+  color: var(--color-ink);
+}
+.prose-preview h1, .prose-preview h2, .prose-preview h3 {
+  font-weight: var(--weight-semi);
+  line-height: var(--leading-snug);
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+.prose-preview p {
+  margin-bottom: 1em;
+}
+.prose-preview img {
+  max-width: 100%;
+  border-radius: var(--radius-md);
+}

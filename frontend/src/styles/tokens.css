@@ -1,0 +1,99 @@
+/* ============================================================
+   Design Tokens — Swiss/International System
+   Wechat Batch Rewriter — internal tool aesthetic
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  /* ---- Colour ---- */
+  --color-ink:       #111110;          /* near-black for text */
+  --color-ink-2:     #44403c;          /* secondary text */
+  --color-ink-3:     #78716c;          /* muted / placeholder */
+  --color-ink-4:     #a8a29e;          /* disabled text */
+
+  --color-surface:   #fafaf9;          /* page background */
+  --color-surface-2: #f5f5f4;          /* card / panel surface */
+  --color-surface-3: #e7e5e4;          /* border / divider */
+  --color-surface-4: #d6d3d1;          /* strong border */
+
+  --color-white:     #ffffff;
+
+  --color-accent:    #1c1917;          /* primary button bg */
+  --color-accent-fg: #fafaf9;          /* primary button text */
+
+  --color-link:      #0070f3;
+
+  /* Status colours — muted but readable */
+  --color-pending:   #e7e5e4;
+  --color-pending-fg:#44403c;
+  --color-processing:#dbeafe;
+  --color-processing-fg:#1e40af;
+  --color-done:      #dcfce7;
+  --color-done-fg:   #15803d;
+  --color-failed:    #fee2e2;
+  --color-failed-fg: #b91c1c;
+  --color-warn:      #fef9c3;
+  --color-warn-fg:   #854d0e;
+
+  /* ---- Typography ---- */
+  --font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'DM Mono', 'Menlo', 'Consolas', monospace;
+
+  --text-xs:   0.75rem;    /* 12px */
+  --text-sm:   0.8125rem;  /* 13px */
+  --text-base: 0.9375rem;  /* 15px */
+  --text-md:   1.0625rem;  /* 17px */
+  --text-lg:   1.25rem;    /* 20px */
+  --text-xl:   1.5rem;     /* 24px */
+  --text-2xl:  2rem;       /* 32px */
+  --text-3xl:  2.75rem;    /* 44px */
+
+  --leading-tight:  1.2;
+  --leading-snug:   1.4;
+  --leading-normal: 1.6;
+  --leading-loose:  1.8;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semi:   600;
+
+  /* ---- Spacing ---- */
+  --space-1:  0.25rem;   /* 4px  */
+  --space-2:  0.5rem;    /* 8px  */
+  --space-3:  0.75rem;   /* 12px */
+  --space-4:  1rem;      /* 16px */
+  --space-5:  1.25rem;   /* 20px */
+  --space-6:  1.5rem;    /* 24px */
+  --space-8:  2rem;      /* 32px */
+  --space-10: 2.5rem;    /* 40px */
+  --space-12: 3rem;      /* 48px */
+  --space-16: 4rem;      /* 64px */
+  --space-20: 5rem;      /* 80px */
+
+  /* ---- Layout ---- */
+  --nav-height:      3.5rem;   /* 56px */
+  --max-content:     72rem;    /* 1152px */
+  --max-narrow:      48rem;    /* 768px */
+
+  /* ---- Border radius ---- */
+  --radius-sm:  0.25rem;   /* 4px  */
+  --radius-md:  0.5rem;    /* 8px  */
+  --radius-lg:  0.75rem;   /* 12px */
+  --radius-xl:  1rem;      /* 16px */
+  --radius-full: 9999px;
+
+  /* ---- Shadow ---- */
+  --shadow-sm:   0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md:   0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-lg:   0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+  --shadow-xl:   0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.04);
+
+  /* ---- Motion ---- */
+  --dur-fast:   120ms;
+  --dur-normal: 220ms;
+  --dur-slow:   380ms;
+  --ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:    cubic-bezier(0.4, 0, 1, 1);
+  --ease-inout: cubic-bezier(0.4, 0, 0.2, 1);
+}
