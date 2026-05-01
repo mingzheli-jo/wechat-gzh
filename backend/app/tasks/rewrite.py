@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.accounts.models import Account
 from app.ai_providers.registry import RegistryError, get_registry, load_from_db
+from app.ai_providers.usage import record_usage
 from app.db.session import make_engine
 from app.drafts.models import Draft, DraftStatus, ReviewReport
 from app.images import service as image_service
@@ -91,6 +92,15 @@ async def _rewrite_with_session(
             title_msgs, model=writer_model, temperature=0.7
         )
         draft.title = title_result.content.strip()
+        await record_usage(
+            session,
+            provider_name=writer.name,
+            role="writer",
+            model=writer_model,
+            usage=title_result.usage,
+            purpose="rewrite_title",
+            ref_id=draft.id,
+        )
 
         content_msgs = build_content_messages(
             account_content_prompt=account.content_prompt,
@@ -108,6 +118,15 @@ async def _rewrite_with_session(
         draft.content_html = content_result.content
         draft.status = DraftStatus.reviewing
         await session.commit()
+        await record_usage(
+            session,
+            provider_name=writer.name,
+            role="writer",
+            model=writer_model,
+            usage=content_result.usage,
+            purpose="rewrite_content",
+            ref_id=draft.id,
+        )
 
         checker = SensitiveWordChecker.from_file(SENSITIVE_WORDS_PATH)
         review_tasks = [
