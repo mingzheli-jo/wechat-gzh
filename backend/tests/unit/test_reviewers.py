@@ -44,6 +44,20 @@ def test_parse_json_safe_returns_default_on_garbage():
     assert "非法 JSON" in out["issues"][0]
 
 
+def test_parse_json_safe_strips_lone_surrogates():
+    """DeepSeek occasionally returns lone surrogates in JSON string values.
+
+    json.loads accepts them but downstream consumers (DB, JSON serializers,
+    UI) choke on them. We sanitize via UTF-8 round-trip with errors='replace'.
+    """
+    raw = '{"score": 70, "issues": ["abc\\ud800def"]}'
+    out = _parse_json_safe(raw)
+    assert out["score"] == 70
+    assert "\ud800" not in out["issues"][0]
+    out_json = json.dumps(out)
+    assert "\\ud800" not in out_json
+
+
 @pytest.mark.asyncio
 async def test_compliance_includes_local_blacklist_hits(tmp_path):
     words_file = tmp_path / "w.txt"
