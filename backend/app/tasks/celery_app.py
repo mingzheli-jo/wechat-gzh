@@ -13,6 +13,7 @@ celery_app = Celery(
         "app.tasks.rewrite",
         "app.tasks.review",
         "app.tasks.images",
+        "app.tasks.publish",
     ],
 )
 
@@ -24,6 +25,8 @@ celery_app.conf.update(
         "app.tasks.crawl.*": {"queue": "crawl"},
         "app.tasks.rewrite.*": {"queue": "rewrite"},
         "app.tasks.review.*": {"queue": "review"},
+        "app.tasks.images.*": {"queue": "publish"},
+        "app.tasks.publish.*": {"queue": "publish"},
     },
     worker_concurrency=settings.celery_worker_concurrency,
     broker_connection_retry_on_startup=True,

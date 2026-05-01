@@ -104,3 +104,21 @@ async def get_report(
     if report is None:
         raise HTTPException(404, "Report not found")
     return ReviewReportOut.model_validate(report)
+
+
+@router.post("/{draft_id}/publish-to-wechat", response_model=DraftOut, status_code=202)
+async def publish(
+    draft_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_current_username),
+) -> DraftOut:
+    obj = await service.get_draft(db, draft_id)
+    if obj is None:
+        raise HTTPException(404, "Draft not found")
+    from app.tasks.images import process_draft_images
+    from app.tasks.publish import publish_draft
+
+    process_draft_images.apply_async(
+        args=[str(obj.id)], link=publish_draft.si(str(obj.id))
+    )
+    return DraftOut.model_validate(obj)
