@@ -42,6 +42,136 @@ async def _ensure_registry(session: AsyncSession) -> None:
         await load_from_db(session)
 
 
+async def _rewrite_with_session(
+    session: AsyncSession,
+    draft_id: uuid.UUID,
+    override_title: str | None,
+    override_content: str | None,
+) -> None:
+    """Core rewrite + review pipeline. Tests pass their own session."""
+    draft = (
+        await session.execute(select(Draft).where(Draft.id == draft_id))
+    ).scalar_one_or_none()
+    if draft is None:
+        return
+    item = (
+        await session.execute(
+            select(LibraryItem).where(LibraryItem.id == draft.library_item_id)
+        )
+    ).scalar_one()
+    account = (
+        await session.execute(
+            select(Account).where(Account.id == draft.account_id)
+        )
+    ).scalar_one()
+
+    await _ensure_registry(session)
+    registry = get_registry()
+    try:
+        writer, writer_model = registry.role("writer")
+        reviewer, reviewer_model = registry.role("reviewer")
+    except RegistryError as exc:
+        draft.status = DraftStatus.failed
+        draft.error_msg = f"AI role binding error: {exc}"
+        await session.commit()
+        return
+
+    try:
+        title_msgs = build_title_messages(
+            account_title_prompt=account.title_prompt,
+            category=account.category,
+            style_desc=account.style_desc,
+            original_title=item.original_title or "",
+            override=override_title,
+        )
+        title_result = await writer.chat(
+            title_msgs, model=writer_model, temperature=0.7
+        )
+        draft.title = title_result.content.strip()
+
+        content_msgs = build_content_messages(
+            account_content_prompt=account.content_prompt,
+            category=account.category,
+            style_desc=account.style_desc,
+            original_content=item.original_content_text or "",
+            override=override_content,
+        )
+        content_result = await writer.chat(
+            content_msgs,
+            model=writer_model,
+            temperature=0.7,
+            max_tokens=4000,
+        )
+        draft.content_html = content_result.content
+        draft.status = DraftStatus.reviewing
+        await session.commit()
+
+        checker = SensitiveWordChecker.from_file(SENSITIVE_WORDS_PATH)
+        review_tasks = [
+            review_compliance(
+                provider=reviewer,
+                model=reviewer_model,
+                title=draft.title,
+                content=item.original_content_text or "",
+                sensitive_checker=checker,
+            ),
+            review_originality(
+                provider=reviewer,
+                model=reviewer_model,
+                original_text=item.original_content_text or "",
+                rewritten_text=content_result.content,
+            ),
+            review_quality(
+                provider=reviewer,
+                model=reviewer_model,
+                title=draft.title,
+                content=content_result.content,
+            ),
+            review_clickbait(
+                provider=reviewer,
+                model=reviewer_model,
+                title=draft.title,
+                content_excerpt=(content_result.content or "")[:1500],
+            ),
+        ]
+        comp, orig, qual, cb = await asyncio.gather(
+            *review_tasks, return_exceptions=False
+        )
+        reports: dict[str, Any] = {
+            "compliance": comp,
+            "originality": orig,
+            "quality": qual,
+            "clickbait": cb,
+        }
+        overall = aggregate(reports)
+
+        report = ReviewReport(
+            draft_id=draft.id,
+            compliance=comp,
+            originality=orig,
+            quality=qual,
+            clickbait=cb,
+            overall_score=overall,
+        )
+        session.add(report)
+        await session.flush()
+        draft.review_report_id = report.id
+        draft.status = DraftStatus.reviewed
+        await session.commit()
+
+        if item.images:
+            await image_service.create_pending_for_draft(
+                session,
+                draft_id=draft.id,
+                original_urls=[img["url"] for img in item.images],
+            )
+    except Exception as exc:
+        logger.exception("rewrite pipeline failed for draft %s", draft.id)
+        draft.status = DraftStatus.failed
+        draft.error_msg = f"{type(exc).__name__}: {exc}"
+        await session.commit()
+
+
 async def _do_rewrite(
     draft_id: uuid.UUID,
     override_title: str | None,
@@ -50,127 +180,9 @@ async def _do_rewrite(
     engine = make_engine()
     sm = async_sessionmaker(engine, expire_on_commit=False)
     async with sm() as session:
-        draft = (
-            await session.execute(select(Draft).where(Draft.id == draft_id))
-        ).scalar_one_or_none()
-        if draft is None:
-            return
-        item = (
-            await session.execute(
-                select(LibraryItem).where(LibraryItem.id == draft.library_item_id)
-            )
-        ).scalar_one()
-        account = (
-            await session.execute(
-                select(Account).where(Account.id == draft.account_id)
-            )
-        ).scalar_one()
-
-        await _ensure_registry(session)
-        registry = get_registry()
-        try:
-            writer, writer_model = registry.role("writer")
-            reviewer, reviewer_model = registry.role("reviewer")
-        except RegistryError as exc:
-            draft.status = DraftStatus.failed
-            draft.error_msg = f"AI role binding error: {exc}"
-            await session.commit()
-            return
-
-        try:
-            title_msgs = build_title_messages(
-                account_title_prompt=account.title_prompt,
-                category=account.category,
-                style_desc=account.style_desc,
-                original_title=item.original_title or "",
-                override=override_title,
-            )
-            title_result = await writer.chat(
-                title_msgs, model=writer_model, temperature=0.7
-            )
-            draft.title = title_result.content.strip()
-
-            content_msgs = build_content_messages(
-                account_content_prompt=account.content_prompt,
-                category=account.category,
-                style_desc=account.style_desc,
-                original_content=item.original_content_text or "",
-                override=override_content,
-            )
-            content_result = await writer.chat(
-                content_msgs,
-                model=writer_model,
-                temperature=0.7,
-                max_tokens=4000,
-            )
-            draft.content_html = content_result.content
-            draft.status = DraftStatus.reviewing
-            await session.commit()
-
-            checker = SensitiveWordChecker.from_file(SENSITIVE_WORDS_PATH)
-            review_tasks = [
-                review_compliance(
-                    provider=reviewer,
-                    model=reviewer_model,
-                    title=draft.title,
-                    content=item.original_content_text or "",
-                    sensitive_checker=checker,
-                ),
-                review_originality(
-                    provider=reviewer,
-                    model=reviewer_model,
-                    original_text=item.original_content_text or "",
-                    rewritten_text=content_result.content,
-                ),
-                review_quality(
-                    provider=reviewer,
-                    model=reviewer_model,
-                    title=draft.title,
-                    content=content_result.content,
-                ),
-                review_clickbait(
-                    provider=reviewer,
-                    model=reviewer_model,
-                    title=draft.title,
-                    content_excerpt=(content_result.content or "")[:1500],
-                ),
-            ]
-            comp, orig, qual, cb = await asyncio.gather(
-                *review_tasks, return_exceptions=False
-            )
-            reports: dict[str, Any] = {
-                "compliance": comp,
-                "originality": orig,
-                "quality": qual,
-                "clickbait": cb,
-            }
-            overall = aggregate(reports)
-
-            report = ReviewReport(
-                draft_id=draft.id,
-                compliance=comp,
-                originality=orig,
-                quality=qual,
-                clickbait=cb,
-                overall_score=overall,
-            )
-            session.add(report)
-            await session.flush()
-            draft.review_report_id = report.id
-            draft.status = DraftStatus.reviewed
-            await session.commit()
-
-            if item.images:
-                await image_service.create_pending_for_draft(
-                    session,
-                    draft_id=draft.id,
-                    original_urls=[img["url"] for img in item.images],
-                )
-        except Exception as exc:
-            logger.exception("rewrite pipeline failed for draft %s", draft.id)
-            draft.status = DraftStatus.failed
-            draft.error_msg = f"{type(exc).__name__}: {exc}"
-            await session.commit()
+        await _rewrite_with_session(
+            session, draft_id, override_title, override_content
+        )
     await engine.dispose()
 
 
