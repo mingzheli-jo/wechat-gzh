@@ -2,8 +2,11 @@ import type { JSX } from "react";
 import { Link, Navigate, Route, Routes } from "react-router-dom";
 
 import Accounts from "./pages/Accounts";
+import DraftDetail from "./pages/DraftDetail";
+import Drafts from "./pages/Drafts";
 import Library from "./pages/Library";
 import Login from "./pages/Login";
+import Settings from "./pages/Settings";
 
 function isAuthed(): boolean {
   return Boolean(localStorage.getItem("token"));
@@ -17,7 +20,9 @@ function Nav() {
   return (
     <nav className="bg-slate-900 text-white px-6 py-3 flex gap-4">
       <Link to="/library">素材库</Link>
+      <Link to="/drafts">草稿</Link>
       <Link to="/accounts">公众号</Link>
+      <Link to="/settings">设置</Link>
       <button
         className="ml-auto"
         onClick={() => {
@@ -55,10 +60,34 @@ export default function App() {
         }
       />
       <Route
+        path="/drafts"
+        element={
+          <Shell>
+            <Drafts />
+          </Shell>
+        }
+      />
+      <Route
+        path="/drafts/:id"
+        element={
+          <Shell>
+            <DraftDetail />
+          </Shell>
+        }
+      />
+      <Route
         path="/accounts"
         element={
           <Shell>
             <Accounts />
+          </Shell>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <Shell>
+            <Settings />
           </Shell>
         }
       />
