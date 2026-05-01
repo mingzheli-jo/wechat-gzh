@@ -184,7 +184,7 @@ Goal: Working FastAPI service running in Docker, single-user JWT login works, ca
 
 **Files:** Create `backend/pyproject.toml`, `backend/.python-version`, `.gitignore`, `backend/tests/{__init__.py,conftest.py,unit/__init__.py,integration/__init__.py}`.
 
-- [ ] **Step 1: Create `backend/pyproject.toml`**
+- [x] **Step 1: Create `backend/pyproject.toml`**
 
 ```toml
 [project]
@@ -226,26 +226,26 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 ```
 
-- [ ] **Step 2: Write `.python-version` with content `3.12`**
+- [x] **Step 2: Write `.python-version` with content `3.12`**
 
-- [ ] **Step 3: Create `.gitignore`** with: `__pycache__/`, `*.pyc`, `.venv/`, `backend/.venv/`, `.env`, `.env.local`, `frontend/node_modules/`, `frontend/dist/`, `.pytest_cache/`, `.mypy_cache/`, `.ruff_cache/`, `data/`, `backend/data/`, `htmlcov/`, `.coverage`.
+- [x] **Step 3: Create `.gitignore`** with: `__pycache__/`, `*.pyc`, `.venv/`, `backend/.venv/`, `.env`, `.env.local`, `frontend/node_modules/`, `frontend/dist/`, `.pytest_cache/`, `.mypy_cache/`, `.ruff_cache/`, `data/`, `backend/data/`, `htmlcov/`, `.coverage`.
 
-- [ ] **Step 4: Create empty test package files** (`backend/tests/__init__.py`, `backend/tests/unit/__init__.py`, `backend/tests/integration/__init__.py`, and `backend/tests/conftest.py` containing only the docstring `"""Shared pytest fixtures."""`).
+- [x] **Step 4: Create empty test package files** (`backend/tests/__init__.py`, `backend/tests/unit/__init__.py`, `backend/tests/integration/__init__.py`, and `backend/tests/conftest.py` containing only the docstring `"""Shared pytest fixtures."""`).
 
-- [ ] **Step 5: Install deps**
+- [x] **Step 5: Install deps**
 
 ```bash
 cd backend && uv venv && uv pip install -e ".[dev]"
 ```
 
-- [ ] **Step 6: Verify tooling works**
+- [x] **Step 6: Verify tooling works**
 
 ```bash
 cd backend && uv run ruff check . && uv run pytest --collect-only
 ```
 Expected: succeeds, no tests collected yet.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add .gitignore backend/pyproject.toml backend/.python-version backend/tests
@@ -258,9 +258,9 @@ git commit -m "chore: initialize backend project skeleton with uv + ruff + pytes
 
 **Files:** Create `backend/app/__init__.py`, `backend/app/db/__init__.py`, `backend/app/db/base.py`, `backend/app/config.py`, `backend/app/db/session.py`, `backend/tests/unit/test_db_base.py`.
 
-- [ ] **Step 1: Create empty `backend/app/__init__.py` and `backend/app/db/__init__.py`**
+- [x] **Step 1: Create empty `backend/app/__init__.py` and `backend/app/db/__init__.py`**
 
-- [ ] **Step 2: Write failing test `backend/tests/unit/test_db_base.py`**
+- [x] **Step 2: Write failing test `backend/tests/unit/test_db_base.py`**
 
 ```python
 from app.db.base import Base
@@ -274,9 +274,9 @@ def test_base_uses_consistent_naming_convention():
     assert convention["ix"] == "ix_%(table_name)s_%(column_0_name)s"
 ```
 
-- [ ] **Step 3: Run failing test** — `uv run pytest tests/unit/test_db_base.py -v` — Expected: FAIL (ModuleNotFoundError).
+- [x] **Step 3: Run failing test** — `uv run pytest tests/unit/test_db_base.py -v` — Expected: FAIL (ModuleNotFoundError).
 
-- [ ] **Step 4: Implement `backend/app/db/base.py`**
+- [x] **Step 4: Implement `backend/app/db/base.py`**
 
 ```python
 from sqlalchemy import MetaData
@@ -295,9 +295,9 @@ class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 ```
 
-- [ ] **Step 5: Run test to verify pass** — `uv run pytest tests/unit/test_db_base.py -v` — Expected: PASS.
+- [x] **Step 5: Run test to verify pass** — `uv run pytest tests/unit/test_db_base.py -v` — Expected: PASS.
 
-- [ ] **Step 6: Implement `backend/app/config.py`**
+- [x] **Step 6: Implement `backend/app/config.py`**
 
 ```python
 from functools import lru_cache
@@ -335,7 +335,7 @@ def get_settings() -> Settings:
     return Settings()
 ```
 
-- [ ] **Step 7: Implement `backend/app/db/session.py`**
+- [x] **Step 7: Implement `backend/app/db/session.py`**
 
 ```python
 from collections.abc import AsyncGenerator
@@ -363,7 +363,7 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
         yield session
 ```
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add backend/app backend/tests/unit/test_db_base.py
@@ -376,7 +376,7 @@ git commit -m "feat(db): add SQLAlchemy Base + Settings + async session factory"
 
 **Files:** Create `backend/app/db/encryption.py`, `backend/tests/unit/test_encryption.py`.
 
-- [ ] **Step 1: Write failing test `backend/tests/unit/test_encryption.py`**
+- [x] **Step 1: Write failing test `backend/tests/unit/test_encryption.py`**
 
 ```python
 import pytest
@@ -416,9 +416,9 @@ def test_encrypted_string_handles_none():
     assert col.process_result_value(None, dialect=None) is None
 ```
 
-- [ ] **Step 2: Run failing test** — Expected: FAIL.
+- [x] **Step 2: Run failing test** — Expected: FAIL.
 
-- [ ] **Step 3: Implement `backend/app/db/encryption.py`**
+- [x] **Step 3: Implement `backend/app/db/encryption.py`**
 
 ```python
 from cryptography.fernet import Fernet
@@ -460,9 +460,9 @@ class EncryptedString(TypeDecorator[str]):
         return None if value is None else decrypt_value(value, key=self._key)
 ```
 
-- [ ] **Step 4: Run tests to verify pass** — Expected: PASS (5 tests).
+- [x] **Step 4: Run tests to verify pass** — Expected: PASS (5 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/db/encryption.py backend/tests/unit/test_encryption.py
@@ -475,7 +475,7 @@ git commit -m "feat(db): add Fernet encryption helpers and EncryptedString colum
 
 **Files:** Create `backend/app/main.py`, `backend/app/api/__init__.py`, `backend/app/api/router.py`, `backend/tests/unit/test_app.py`.
 
-- [ ] **Step 1: Write failing test `backend/tests/unit/test_app.py`**
+- [x] **Step 1: Write failing test `backend/tests/unit/test_app.py`**
 
 ```python
 from fastapi.testclient import TestClient
@@ -489,9 +489,9 @@ def test_health_returns_ok():
     assert response.json() == {"status": "ok"}
 ```
 
-- [ ] **Step 2: Run failing test** — Expected: FAIL.
+- [x] **Step 2: Run failing test** — Expected: FAIL.
 
-- [ ] **Step 3: Implement `backend/app/api/router.py`**
+- [x] **Step 3: Implement `backend/app/api/router.py`**
 
 ```python
 from fastapi import APIRouter
@@ -499,7 +499,7 @@ from fastapi import APIRouter
 api_router = APIRouter()
 ```
 
-- [ ] **Step 4: Implement `backend/app/main.py`**
+- [x] **Step 4: Implement `backend/app/main.py`**
 
 ```python
 from fastapi import FastAPI
@@ -523,9 +523,9 @@ def create_app() -> FastAPI:
 app = create_app()
 ```
 
-- [ ] **Step 5: Run test to verify pass** — Expected: PASS.
+- [x] **Step 5: Run test to verify pass** — Expected: PASS.
 
-- [ ] **Step 6: Verify uvicorn boots**
+- [x] **Step 6: Verify uvicorn boots**
 
 ```bash
 uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 &
@@ -533,7 +533,7 @@ sleep 2 && curl http://127.0.0.1:8000/health && kill %1
 ```
 Expected: `{"status":"ok"}`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/app/main.py backend/app/api backend/tests/unit/test_app.py
@@ -546,11 +546,11 @@ git commit -m "feat(api): add FastAPI app factory with health endpoint"
 
 **Files:** Create `backend/alembic.ini`, `backend/alembic/env.py`, `backend/alembic/script.py.mako`, `backend/alembic/versions/`.
 
-- [ ] **Step 1: Run** `cd backend && uv run alembic init -t async alembic` — creates the directory and `alembic.ini`.
+- [x] **Step 1: Run** `cd backend && uv run alembic init -t async alembic` — creates the directory and `alembic.ini`.
 
-- [ ] **Step 2: Edit `backend/alembic.ini`** — set `sqlalchemy.url =` to empty (we inject it from Settings in env.py).
+- [x] **Step 2: Edit `backend/alembic.ini`** — set `sqlalchemy.url =` to empty (we inject it from Settings in env.py).
 
-- [ ] **Step 3: Replace `backend/alembic/env.py`** with:
+- [x] **Step 3: Replace `backend/alembic/env.py`** with:
 
 ```python
 from __future__ import annotations
@@ -602,7 +602,7 @@ else:
     asyncio.run(run_migrations_online())
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/alembic.ini backend/alembic
@@ -615,7 +615,7 @@ git commit -m "chore(db): scaffold Alembic with async env wired to Settings"
 
 **Files:** Create `backend/app/auth/__init__.py`, `backend/app/auth/password.py`, `backend/tests/unit/test_password.py`.
 
-- [ ] **Step 1: Write failing test `backend/tests/unit/test_password.py`**
+- [x] **Step 1: Write failing test `backend/tests/unit/test_password.py`**
 
 ```python
 from app.auth.password import hash_password, verify_password
@@ -634,9 +634,9 @@ def test_verify_password_rejects_wrong():
     assert verify_password("wrong", hash_password("hunter2")) is False
 ```
 
-- [ ] **Step 2: Run failing test** — Expected: FAIL.
+- [x] **Step 2: Run failing test** — Expected: FAIL.
 
-- [ ] **Step 3: Create empty `backend/app/auth/__init__.py` and implement `backend/app/auth/password.py`**
+- [x] **Step 3: Create empty `backend/app/auth/__init__.py` and implement `backend/app/auth/password.py`**
 
 ```python
 from passlib.context import CryptContext
@@ -652,9 +652,9 @@ def verify_password(plain: str, hashed: str) -> bool:
     return _ctx.verify(plain, hashed)
 ```
 
-- [ ] **Step 4: Run tests** — Expected: PASS (3 tests).
+- [x] **Step 4: Run tests** — Expected: PASS (3 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/auth backend/tests/unit/test_password.py
@@ -667,7 +667,7 @@ git commit -m "feat(auth): add bcrypt password hashing helpers"
 
 **Files:** Create `backend/app/auth/jwt_utils.py`, `backend/tests/unit/test_jwt_utils.py`.
 
-- [ ] **Step 1: Write failing test `backend/tests/unit/test_jwt_utils.py`**
+- [x] **Step 1: Write failing test `backend/tests/unit/test_jwt_utils.py`**
 
 ```python
 from datetime import timedelta
@@ -693,9 +693,9 @@ def test_expired_raises():
         decode_token(t, secret="s")
 ```
 
-- [ ] **Step 2: Run failing test** — Expected: FAIL.
+- [x] **Step 2: Run failing test** — Expected: FAIL.
 
-- [ ] **Step 3: Implement `backend/app/auth/jwt_utils.py`**
+- [x] **Step 3: Implement `backend/app/auth/jwt_utils.py`**
 
 ```python
 from datetime import datetime, timedelta, timezone
@@ -723,9 +723,9 @@ def decode_token(token: str, *, secret: str | None = None,
     return jwt.decode(token, secret or s.jwt_secret, algorithms=[algorithm or s.jwt_algorithm])
 ```
 
-- [ ] **Step 4: Run tests** — Expected: PASS.
+- [x] **Step 4: Run tests** — Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/auth/jwt_utils.py backend/tests/unit/test_jwt_utils.py
@@ -738,7 +738,7 @@ git commit -m "feat(auth): add JWT create/decode helpers using python-jose"
 
 **Files:** Create `backend/app/auth/{schemas.py,dependencies.py,routes.py}`; modify `backend/app/api/router.py`; create `backend/tests/unit/test_auth_routes.py`.
 
-- [ ] **Step 1: Create `backend/app/auth/schemas.py`**
+- [x] **Step 1: Create `backend/app/auth/schemas.py`**
 
 ```python
 from pydantic import BaseModel
@@ -758,7 +758,7 @@ class MeResponse(BaseModel):
     username: str
 ```
 
-- [ ] **Step 2: Create `backend/app/auth/dependencies.py`**
+- [x] **Step 2: Create `backend/app/auth/dependencies.py`**
 
 ```python
 from fastapi import Depends, HTTPException, status
@@ -780,7 +780,7 @@ def get_current_username(token: str = Depends(oauth2_scheme)) -> str:
     return sub
 ```
 
-- [ ] **Step 3: Write failing test `backend/tests/unit/test_auth_routes.py`**
+- [x] **Step 3: Write failing test `backend/tests/unit/test_auth_routes.py`**
 
 ```python
 import pytest
@@ -822,9 +822,9 @@ def test_me_returns_username_with_token(client):
     assert r.json() == {"username": "admin"}
 ```
 
-- [ ] **Step 4: Run failing test** — Expected: FAIL (404).
+- [x] **Step 4: Run failing test** — Expected: FAIL (404).
 
-- [ ] **Step 5: Implement `backend/app/auth/routes.py`**
+- [x] **Step 5: Implement `backend/app/auth/routes.py`**
 
 ```python
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -853,7 +853,7 @@ async def me(username: str = Depends(get_current_username)) -> MeResponse:
     return MeResponse(username=username)
 ```
 
-- [ ] **Step 6: Modify `backend/app/api/router.py`**
+- [x] **Step 6: Modify `backend/app/api/router.py`**
 
 ```python
 from fastapi import APIRouter
@@ -863,9 +863,9 @@ api_router = APIRouter()
 api_router.include_router(auth_router)
 ```
 
-- [ ] **Step 7: Run tests** — Expected: PASS (4 tests).
+- [x] **Step 7: Run tests** — Expected: PASS (4 tests).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add backend/app/auth backend/app/api/router.py backend/tests/unit/test_auth_routes.py
@@ -878,9 +878,9 @@ git commit -m "feat(auth): add /auth/login and /auth/me with JWT bearer"
 
 **Files:** Create `backend/app/accounts/__init__.py`, `backend/app/accounts/models.py`; modify `backend/alembic/env.py`; generate `backend/alembic/versions/<rev>_create_accounts_table.py`.
 
-- [ ] **Step 1: Create empty `backend/app/accounts/__init__.py`**
+- [x] **Step 1: Create empty `backend/app/accounts/__init__.py`**
 
-- [ ] **Step 2: Implement `backend/app/accounts/models.py`**
+- [x] **Step 2: Implement `backend/app/accounts/models.py`**
 
 ```python
 import uuid
@@ -908,9 +908,9 @@ class Account(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 ```
 
-- [ ] **Step 3: Modify `backend/alembic/env.py`** — uncomment / add line `from app.accounts.models import Account  # noqa: F401` after `from app.db.base import Base`.
+- [x] **Step 3: Modify `backend/alembic/env.py`** — uncomment / add line `from app.accounts.models import Account  # noqa: F401` after `from app.db.base import Base`.
 
-- [ ] **Step 4: Start temp postgres + autogenerate migration**
+- [x] **Step 4: Start temp postgres + autogenerate migration**
 
 ```bash
 docker run -d --name pg-tmp -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:16-alpine
@@ -922,15 +922,15 @@ DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/postgres \
 ```
 Expected: file `backend/alembic/versions/<rev>_create_accounts_table.py` is generated.
 
-- [ ] **Step 5: Inspect & apply**
+- [x] **Step 5: Inspect & apply**
 
 ```bash
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/postgres uv run alembic upgrade head
 ```
 
-- [ ] **Step 6: Cleanup** — `docker stop pg-tmp && docker rm pg-tmp`.
+- [x] **Step 6: Cleanup** — `docker stop pg-tmp && docker rm pg-tmp`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/app/accounts backend/alembic
@@ -943,7 +943,7 @@ git commit -m "feat(accounts): add Account model with encrypted secret + first m
 
 **Files:** Create `backend/app/accounts/{schemas.py,service.py,routes.py}`, `backend/app/api/deps.py`, `backend/tests/integration/conftest.py`, `backend/tests/integration/test_accounts_routes.py`; modify `backend/app/api/router.py`.
 
-- [ ] **Step 1: Create `backend/app/api/deps.py`**
+- [x] **Step 1: Create `backend/app/api/deps.py`**
 
 ```python
 from collections.abc import AsyncGenerator
@@ -956,7 +956,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         yield session
 ```
 
-- [ ] **Step 2: Create `backend/app/accounts/schemas.py`**
+- [x] **Step 2: Create `backend/app/accounts/schemas.py`**
 
 ```python
 import uuid
@@ -1001,7 +1001,7 @@ class AccountOut(BaseModel):
     # wechat_secret intentionally excluded
 ```
 
-- [ ] **Step 3: Create `backend/app/accounts/service.py`**
+- [x] **Step 3: Create `backend/app/accounts/service.py`**
 
 ```python
 import uuid
@@ -1041,7 +1041,7 @@ async def delete_account(db: AsyncSession, account: Account) -> None:
     await db.commit()
 ```
 
-- [ ] **Step 4: Create `backend/app/accounts/routes.py`**
+- [x] **Step 4: Create `backend/app/accounts/routes.py`**
 
 ```python
 import uuid
@@ -1098,7 +1098,7 @@ async def delete(account_id: uuid.UUID,
     await service.delete_account(db, obj)
 ```
 
-- [ ] **Step 5: Update `backend/app/api/router.py`**
+- [x] **Step 5: Update `backend/app/api/router.py`**
 
 ```python
 from fastapi import APIRouter
@@ -1110,7 +1110,7 @@ api_router.include_router(auth_router)
 api_router.include_router(accounts_router)
 ```
 
-- [ ] **Step 6: Create `backend/tests/integration/conftest.py`**
+- [x] **Step 6: Create `backend/tests/integration/conftest.py`**
 
 ```python
 import asyncio
@@ -1176,7 +1176,7 @@ async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
         yield session
 ```
 
-- [ ] **Step 7: Write integration test `backend/tests/integration/test_accounts_routes.py`**
+- [x] **Step 7: Write integration test `backend/tests/integration/test_accounts_routes.py`**
 
 ```python
 import pytest
@@ -1238,9 +1238,9 @@ async def test_routes_require_auth(app):
         assert (await client.get("/api/accounts")).status_code == 401
 ```
 
-- [ ] **Step 8: Run integration tests** — `uv run pytest tests/integration/test_accounts_routes.py -v` — Expected: PASS (3 tests). First run pulls postgres image.
+- [x] **Step 8: Run integration tests** — `uv run pytest tests/integration/test_accounts_routes.py -v` — Expected: PASS (3 tests). First run pulls postgres image.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add backend/app/accounts backend/app/api backend/tests/integration
@@ -1253,7 +1253,7 @@ git commit -m "feat(accounts): add schemas, service, CRUD routes, integration te
 
 **Files:** Create `backend/app/scripts/__init__.py`, `backend/app/scripts/init_admin.py`, `backend/tests/unit/test_init_admin.py`.
 
-- [ ] **Step 1: Write failing test** — `backend/tests/unit/test_init_admin.py`
+- [x] **Step 1: Write failing test** — `backend/tests/unit/test_init_admin.py`
 
 ```python
 from app.auth.password import verify_password
@@ -1264,7 +1264,7 @@ def test_build_password_hash_is_verifiable():
     assert verify_password("hunter2", build_password_hash("hunter2"))
 ```
 
-- [ ] **Step 2: Implement `backend/app/scripts/init_admin.py`**
+- [x] **Step 2: Implement `backend/app/scripts/init_admin.py`**
 
 ```python
 """Helper to print bcrypt hash for ADMIN_PASSWORD_HASH env var."""
@@ -1291,9 +1291,9 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 3: Create empty `backend/app/scripts/__init__.py`** and run tests — Expected: PASS.
+- [x] **Step 3: Create empty `backend/app/scripts/__init__.py`** and run tests — Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/app/scripts backend/tests/unit/test_init_admin.py
@@ -1306,7 +1306,7 @@ git commit -m "feat(scripts): add init_admin helper to print bcrypt hash"
 
 **Files:** Create `docker/Dockerfile.api`, `docker/entrypoint-api.sh`.
 
-- [ ] **Step 1: `docker/Dockerfile.api`**
+- [x] **Step 1: `docker/Dockerfile.api`**
 
 ```dockerfile
 FROM python:3.12-slim AS base
@@ -1324,7 +1324,7 @@ ENTRYPOINT ["/app/entrypoint-api.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
-- [ ] **Step 2: `docker/entrypoint-api.sh`**
+- [x] **Step 2: `docker/entrypoint-api.sh`**
 
 ```bash
 #!/usr/bin/env bash
@@ -1336,9 +1336,9 @@ echo "[entrypoint] starting: $*"
 exec "$@"
 ```
 
-- [ ] **Step 3: Build smoke test** — `docker build -f docker/Dockerfile.api -t wechat-rewriter-api:dev .` — Expected: success.
+- [x] **Step 3: Build smoke test** — `docker build -f docker/Dockerfile.api -t wechat-rewriter-api:dev .` — Expected: success.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docker/Dockerfile.api docker/entrypoint-api.sh
@@ -1351,7 +1351,7 @@ git commit -m "chore(docker): add API Dockerfile with alembic-upgrade entrypoint
 
 **Files:** Create `docker-compose.yml`, `.env.example`.
 
-- [ ] **Step 1: `.env.example`**
+- [x] **Step 1: `.env.example`**
 
 ```env
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/wechat_rewriter
@@ -1377,7 +1377,7 @@ IMAGE_STORAGE_DIR=/data/images
 REWRITE_BATCH_MAX=20
 ```
 
-- [ ] **Step 2: `docker-compose.yml`**
+- [x] **Step 2: `docker-compose.yml`**
 
 ```yaml
 services:
@@ -1423,7 +1423,7 @@ volumes:
   redis_data:
 ```
 
-- [ ] **Step 3: Smoke test**
+- [x] **Step 3: Smoke test**
 
 ```bash
 cp .env.example .env
@@ -1438,7 +1438,7 @@ docker compose down
 ```
 Expected: `{"status":"ok"}` from curl, no errors in api logs.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docker-compose.yml .env.example
@@ -1451,7 +1451,7 @@ git commit -m "chore(docker): add docker-compose with postgres + redis + api ser
 
 **Files:** Scaffold `frontend/` with Vite, configure Tailwind, add API client and pages.
 
-- [ ] **Step 1: Scaffold**
+- [x] **Step 1: Scaffold**
 
 ```bash
 pnpm create vite frontend --template react-ts
@@ -1462,7 +1462,7 @@ pnpm add -D tailwindcss postcss autoprefixer @types/node
 pnpm dlx tailwindcss init -p
 ```
 
-- [ ] **Step 2: `frontend/tailwind.config.js`**
+- [x] **Step 2: `frontend/tailwind.config.js`**
 
 ```js
 export default {
@@ -1472,7 +1472,7 @@ export default {
 };
 ```
 
-- [ ] **Step 3: `frontend/src/index.css`**
+- [x] **Step 3: `frontend/src/index.css`**
 
 ```css
 @tailwind base;
@@ -1480,7 +1480,7 @@ export default {
 @tailwind utilities;
 ```
 
-- [ ] **Step 4: `frontend/src/main.tsx`**
+- [x] **Step 4: `frontend/src/main.tsx`**
 
 ```tsx
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -1502,7 +1502,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 );
 ```
 
-- [ ] **Step 5: `frontend/src/api/client.ts`**
+- [x] **Step 5: `frontend/src/api/client.ts`**
 
 ```ts
 import axios from "axios";
@@ -1526,7 +1526,7 @@ api.interceptors.response.use(
 );
 ```
 
-- [ ] **Step 6: `frontend/src/App.tsx`**
+- [x] **Step 6: `frontend/src/App.tsx`**
 
 ```tsx
 import { Navigate, Route, Routes } from "react-router-dom";
@@ -1551,7 +1551,7 @@ export default function App() {
 }
 ```
 
-- [ ] **Step 7: `frontend/src/pages/Login.tsx`**
+- [x] **Step 7: `frontend/src/pages/Login.tsx`**
 
 ```tsx
 import { useState } from "react";
@@ -1595,7 +1595,7 @@ export default function Login() {
 }
 ```
 
-- [ ] **Step 8: `frontend/src/pages/Accounts.tsx`**
+- [x] **Step 8: `frontend/src/pages/Accounts.tsx`**
 
 ```tsx
 import { useQuery } from "@tanstack/react-query";
@@ -1625,7 +1625,7 @@ export default function Accounts() {
 }
 ```
 
-- [ ] **Step 9: `frontend/vite.config.ts`** — add proxy
+- [x] **Step 9: `frontend/vite.config.ts`** — add proxy
 
 ```ts
 import react from "@vitejs/plugin-react";
@@ -1640,9 +1640,9 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 10: Smoke test** — `pnpm dev`. Browse to http://localhost:5173, log in with admin/hunter2, verify redirect to `/accounts` (will show empty list since DB has no rows yet).
+- [x] **Step 10: Smoke test** — `pnpm dev`. Browse to http://localhost:5173, log in with admin/hunter2, verify redirect to `/accounts` (will show empty list since DB has no rows yet).
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add frontend/
@@ -1655,7 +1655,7 @@ git commit -m "feat(frontend): scaffold Vite + React + Tailwind with login + acc
 
 **Files:** Create `docker/Dockerfile.web`, `docker/nginx.conf`; modify `docker-compose.yml`.
 
-- [ ] **Step 1: `docker/Dockerfile.web`**
+- [x] **Step 1: `docker/Dockerfile.web`**
 
 ```dockerfile
 FROM node:20-alpine AS builder
@@ -1671,7 +1671,7 @@ COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 ```
 
-- [ ] **Step 2: `docker/nginx.conf`**
+- [x] **Step 2: `docker/nginx.conf`**
 
 ```nginx
 server {
@@ -1693,7 +1693,7 @@ server {
 }
 ```
 
-- [ ] **Step 3: Add `web` service to `docker-compose.yml`**
+- [x] **Step 3: Add `web` service to `docker-compose.yml`**
 
 ```yaml
   web:
@@ -1706,7 +1706,7 @@ server {
       - "80:80"
 ```
 
-- [ ] **Step 4: Smoke test**
+- [x] **Step 4: Smoke test**
 
 ```bash
 docker compose up -d --build
@@ -1717,7 +1717,7 @@ docker compose down
 ```
 Expected: HTTP 200 from `/`, `{"status":"ok"}` from `/api/health`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docker/Dockerfile.web docker/nginx.conf docker-compose.yml
@@ -1747,7 +1747,7 @@ Goal: Celery worker container running, user can paste WeChat article URLs, syste
 
 **Files:** Create `backend/app/tasks/__init__.py`, `backend/app/tasks/celery_app.py`, `docker/Dockerfile.worker`, `docker/entrypoint-worker.sh`; update `docker-compose.yml`.
 
-- [ ] **Step 1: Create `backend/app/tasks/__init__.py`** with:
+- [x] **Step 1: Create `backend/app/tasks/__init__.py`** with:
 
 ```python
 from app.tasks.celery_app import celery_app
@@ -1755,7 +1755,7 @@ from app.tasks.celery_app import celery_app
 __all__ = ["celery_app"]
 ```
 
-- [ ] **Step 2: Create `backend/app/tasks/celery_app.py`**
+- [x] **Step 2: Create `backend/app/tasks/celery_app.py`**
 
 ```python
 from celery import Celery
@@ -1786,7 +1786,7 @@ celery_app.conf.update(
 )
 ```
 
-- [ ] **Step 3: Create `docker/Dockerfile.worker`** (same base as api but different command)
+- [x] **Step 3: Create `docker/Dockerfile.worker`** (same base as api but different command)
 
 ```dockerfile
 FROM python:3.12-slim AS base
@@ -1804,7 +1804,7 @@ ENTRYPOINT ["/app/entrypoint-worker.sh"]
 CMD ["celery", "-A", "app.tasks.celery_app", "worker", "--loglevel=INFO", "-Q", "default,crawl,rewrite,review,publish"]
 ```
 
-- [ ] **Step 4: Create `docker/entrypoint-worker.sh`**
+- [x] **Step 4: Create `docker/entrypoint-worker.sh`**
 
 ```bash
 #!/usr/bin/env bash
@@ -1814,7 +1814,7 @@ echo "[worker] waiting for postgres + redis..."
 exec "$@"
 ```
 
-- [ ] **Step 5: Add `worker` service in `docker-compose.yml`** (place after `api`)
+- [x] **Step 5: Add `worker` service in `docker-compose.yml`** (place after `api`)
 
 ```yaml
   worker:
@@ -1833,9 +1833,9 @@ exec "$@"
 
 And add `image_data:` under `volumes:`.
 
-- [ ] **Step 6: Smoke test** — `docker compose up -d --build worker` then `docker compose logs worker --tail 20` should show celery startup banner with broker URL.
+- [x] **Step 6: Smoke test** — `docker compose up -d --build worker` then `docker compose logs worker --tail 20` should show celery startup banner with broker URL.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/app/tasks docker/Dockerfile.worker docker/entrypoint-worker.sh docker-compose.yml
@@ -1848,7 +1848,7 @@ git commit -m "feat(tasks): add Celery app and worker container"
 
 **Files:** Create `backend/app/tasks/models.py`; modify `backend/alembic/env.py`; generate migration.
 
-- [ ] **Step 1: Implement `backend/app/tasks/models.py`**
+- [x] **Step 1: Implement `backend/app/tasks/models.py`**
 
 ```python
 import enum
@@ -1887,9 +1887,9 @@ class TaskRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 ```
 
-- [ ] **Step 2: Update `backend/alembic/env.py`** — add `from app.tasks.models import TaskRecord  # noqa: F401`
+- [x] **Step 2: Update `backend/alembic/env.py`** — add `from app.tasks.models import TaskRecord  # noqa: F401`
 
-- [ ] **Step 3: Autogenerate + apply migration** (same flow as Task 1.9):
+- [x] **Step 3: Autogenerate + apply migration** (same flow as Task 1.9):
 
 ```bash
 docker run -d --name pg-tmp -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:16-alpine
@@ -1902,7 +1902,7 @@ DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/postgres uv r
 docker stop pg-tmp && docker rm pg-tmp
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/app/tasks/models.py backend/alembic
@@ -1915,7 +1915,7 @@ git commit -m "feat(tasks): add TaskRecord model + migration"
 
 **Files:** Create `backend/app/library/__init__.py`, `backend/app/library/models.py`; update `backend/alembic/env.py`; generate migration.
 
-- [ ] **Step 1: Implement `backend/app/library/models.py`**
+- [x] **Step 1: Implement `backend/app/library/models.py`**
 
 ```python
 import enum
@@ -1952,11 +1952,11 @@ class LibraryItem(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 ```
 
-- [ ] **Step 2: Update `backend/alembic/env.py`** — add `from app.library.models import LibraryItem  # noqa: F401`
+- [x] **Step 2: Update `backend/alembic/env.py`** — add `from app.library.models import LibraryItem  # noqa: F401`
 
-- [ ] **Step 3: Generate + apply migration** (same temp pg flow as before, message: `"create library_items table"`).
+- [x] **Step 3: Generate + apply migration** (same temp pg flow as before, message: `"create library_items table"`).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/app/library backend/alembic
@@ -1969,7 +1969,7 @@ git commit -m "feat(library): add LibraryItem model + migration"
 
 **Files:** Create `backend/app/crawler/__init__.py`, `backend/app/crawler/fetcher.py`, `backend/tests/unit/test_fetcher.py`.
 
-- [ ] **Step 1: Write failing test `backend/tests/unit/test_fetcher.py`**
+- [x] **Step 1: Write failing test `backend/tests/unit/test_fetcher.py`**
 
 ```python
 import httpx
@@ -2008,7 +2008,7 @@ async def test_fetch_html_retries_on_5xx():
         assert route.call_count == 3
 ```
 
-- [ ] **Step 2: Implement `backend/app/crawler/fetcher.py`**
+- [x] **Step 2: Implement `backend/app/crawler/fetcher.py`**
 
 ```python
 import asyncio
@@ -2053,11 +2053,11 @@ async def fetch_html(url: str, *, timeout: int | None = None, max_retries: int |
     raise FetchError(f"failed after {max_retries} retries: {last_exc}")
 ```
 
-- [ ] **Step 3: Create empty `backend/app/crawler/__init__.py`**
+- [x] **Step 3: Create empty `backend/app/crawler/__init__.py`**
 
-- [ ] **Step 4: Run tests** — `uv run pytest tests/unit/test_fetcher.py -v` — Expected: PASS.
+- [x] **Step 4: Run tests** — `uv run pytest tests/unit/test_fetcher.py -v` — Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/crawler backend/tests/unit/test_fetcher.py
@@ -2070,7 +2070,7 @@ git commit -m "feat(crawler): add httpx-based fetcher with UA rotation and retri
 
 **Files:** Create `backend/app/crawler/parser.py`, `backend/tests/unit/test_parser.py`, `backend/tests/fixtures/sample_article.html`.
 
-- [ ] **Step 1: Save sample fixture `backend/tests/fixtures/sample_article.html`** — paste a real WeChat article HTML (or write a minimal one):
+- [x] **Step 1: Save sample fixture `backend/tests/fixtures/sample_article.html`** — paste a real WeChat article HTML (or write a minimal one):
 
 ```html
 <html>
@@ -2087,7 +2087,7 @@ git commit -m "feat(crawler): add httpx-based fetcher with UA rotation and retri
 </body></html>
 ```
 
-- [ ] **Step 2: Write failing test `backend/tests/unit/test_parser.py`**
+- [x] **Step 2: Write failing test `backend/tests/unit/test_parser.py`**
 
 ```python
 from pathlib import Path
@@ -2116,7 +2116,7 @@ def test_parse_handles_missing_title():
     assert "x" in result.content_text
 ```
 
-- [ ] **Step 3: Implement `backend/app/crawler/parser.py`**
+- [x] **Step 3: Implement `backend/app/crawler/parser.py`**
 
 ```python
 from dataclasses import dataclass, field
@@ -2159,9 +2159,9 @@ def parse_wechat_article(html_text: str) -> ParsedArticle:
                          content_text=content_text, images=images)
 ```
 
-- [ ] **Step 4: Run tests** — Expected: PASS (2 tests).
+- [x] **Step 4: Run tests** — Expected: PASS (2 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/crawler/parser.py backend/tests/unit/test_parser.py backend/tests/fixtures
@@ -2174,7 +2174,7 @@ git commit -m "feat(crawler): add lxml-based WeChat article parser"
 
 **Files:** Create `backend/app/library/{schemas.py,service.py,routes.py}`; modify `backend/app/api/router.py`; create `backend/tests/integration/test_library_routes.py`.
 
-- [ ] **Step 1: `backend/app/library/schemas.py`**
+- [x] **Step 1: `backend/app/library/schemas.py`**
 
 ```python
 import uuid
@@ -2211,7 +2211,7 @@ class TagsUpdate(BaseModel):
     tags: list[str]
 ```
 
-- [ ] **Step 2: `backend/app/library/service.py`**
+- [x] **Step 2: `backend/app/library/service.py`**
 
 ```python
 import uuid
@@ -2257,7 +2257,7 @@ async def delete(db: AsyncSession, item: LibraryItem) -> None:
     await db.commit()
 ```
 
-- [ ] **Step 3: `backend/app/library/routes.py`**
+- [x] **Step 3: `backend/app/library/routes.py`**
 
 ```python
 import uuid
@@ -2345,11 +2345,11 @@ async def retry(item_id: uuid.UUID,
     return LibraryItemOut.model_validate(obj)
 ```
 
-- [ ] **Step 4: Update `backend/app/api/router.py`** — add `from app.library.routes import router as library_router` and include it.
+- [x] **Step 4: Update `backend/app/api/router.py`** — add `from app.library.routes import router as library_router` and include it.
 
-- [ ] **Step 5: Update `backend/tests/integration/conftest.py`** — add imports `from app.library.models import LibraryItem  # noqa: F401` and `from app.tasks.models import TaskRecord  # noqa: F401` (so create_all sees these tables).
+- [x] **Step 5: Update `backend/tests/integration/conftest.py`** — add imports `from app.library.models import LibraryItem  # noqa: F401` and `from app.tasks.models import TaskRecord  # noqa: F401` (so create_all sees these tables).
 
-- [ ] **Step 6: Write integration test `backend/tests/integration/test_library_routes.py`**
+- [x] **Step 6: Write integration test `backend/tests/integration/test_library_routes.py`**
 
 ```python
 import pytest
@@ -2407,9 +2407,9 @@ async def test_update_tags_and_delete(auth_client):
     assert delete.status_code == 204
 ```
 
-- [ ] **Step 7: Run integration tests** — Expected: PASS (3 tests).
+- [x] **Step 7: Run integration tests** — Expected: PASS (3 tests).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add backend/app/library backend/app/api/router.py backend/tests/integration
@@ -2422,7 +2422,7 @@ git commit -m "feat(library): add library schemas, service, CRUD routes, integra
 
 **Files:** Create `backend/app/tasks/crawl.py`, `backend/tests/unit/test_crawl_task.py`.
 
-- [ ] **Step 1: Implement `backend/app/tasks/crawl.py`**
+- [x] **Step 1: Implement `backend/app/tasks/crawl.py`**
 
 ```python
 import asyncio
@@ -2479,7 +2479,7 @@ def crawl_library_item(self, item_id: str) -> None:
     asyncio.run(_do_crawl(uuid.UUID(item_id)))
 ```
 
-- [ ] **Step 2: Write integration-style test `backend/tests/integration/test_crawl_task.py`**
+- [x] **Step 2: Write integration-style test `backend/tests/integration/test_crawl_task.py`**
 
 ```python
 import pytest
@@ -2522,11 +2522,11 @@ async def test_crawl_marks_failed_on_404(db_session):
     assert "fetch error" in (refreshed.error_msg or "")
 ```
 
-- [ ] **Step 3: Update `backend/app/tasks/celery_app.py`** — already includes `app.tasks.crawl` in `include`. Verify nothing breaks.
+- [x] **Step 3: Update `backend/app/tasks/celery_app.py`** — already includes `app.tasks.crawl` in `include`. Verify nothing breaks.
 
-- [ ] **Step 4: Run tests** — Expected: PASS (2 tests).
+- [x] **Step 4: Run tests** — Expected: PASS (2 tests).
 
-- [ ] **Step 5: End-to-end smoke test in compose**
+- [x] **Step 5: End-to-end smoke test in compose**
 
 ```bash
 docker compose up -d --build
@@ -2542,7 +2542,7 @@ docker compose logs worker --tail 50
 ```
 Expected: library item moves from `pending` → `processing` → `done` (or `failed` with parsing error if fixture URL is fake).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app/tasks/crawl.py backend/tests/integration/test_crawl_task.py
@@ -2555,7 +2555,7 @@ git commit -m "feat(tasks): add crawl_library_item Celery task with status track
 
 **Files:** Create `frontend/src/pages/Library.tsx`; modify `frontend/src/App.tsx` and add nav.
 
-- [ ] **Step 1: Create `frontend/src/pages/Library.tsx`**
+- [x] **Step 1: Create `frontend/src/pages/Library.tsx`**
 
 ```tsx
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -2663,7 +2663,7 @@ export default function Library() {
 }
 ```
 
-- [ ] **Step 2: Modify `frontend/src/App.tsx`** — add Library route
+- [x] **Step 2: Modify `frontend/src/App.tsx`** — add Library route
 
 ```tsx
 import { Navigate, Route, Routes, Link } from "react-router-dom";
@@ -2705,9 +2705,9 @@ export default function App() {
 }
 ```
 
-- [ ] **Step 3: Smoke test** — `pnpm dev`, log in, verify "素材库" page loads and you can paste URLs.
+- [x] **Step 3: Smoke test** — `pnpm dev`, log in, verify "素材库" page loads and you can paste URLs.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/pages/Library.tsx frontend/src/App.tsx
@@ -2737,7 +2737,7 @@ Goal: Multi-provider AI registry with role-based routing; user can trigger batch
 
 **Files:** Create `backend/app/ai_providers/__init__.py`, `backend/app/ai_providers/models.py`; update `backend/alembic/env.py`; generate migration.
 
-- [ ] **Step 1: Implement `backend/app/ai_providers/models.py`**
+- [x] **Step 1: Implement `backend/app/ai_providers/models.py`**
 
 ```python
 import enum
@@ -2794,13 +2794,13 @@ class AIUsage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 ```
 
-- [ ] **Step 2: Update `backend/alembic/env.py`** — add `from app.ai_providers.models import AIProvider, RoleBinding, AIUsage  # noqa: F401`.
+- [x] **Step 2: Update `backend/alembic/env.py`** — add `from app.ai_providers.models import AIProvider, RoleBinding, AIUsage  # noqa: F401`.
 
-- [ ] **Step 3: Autogenerate + apply migration** (same temp pg flow, message `"create ai_providers, role_bindings, ai_usage tables"`).
+- [x] **Step 3: Autogenerate + apply migration** (same temp pg flow, message `"create ai_providers, role_bindings, ai_usage tables"`).
 
-- [ ] **Step 4: Update `backend/tests/integration/conftest.py`** — add `from app.ai_providers.models import AIProvider, RoleBinding, AIUsage  # noqa: F401`.
+- [x] **Step 4: Update `backend/tests/integration/conftest.py`** — add `from app.ai_providers.models import AIProvider, RoleBinding, AIUsage  # noqa: F401`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/ai_providers backend/alembic backend/tests/integration/conftest.py
@@ -2813,7 +2813,7 @@ git commit -m "feat(ai_providers): add provider, role binding, usage tables + mi
 
 **Files:** Create `backend/app/ai_providers/base.py`, `backend/app/ai_providers/openai_compat.py`, `backend/tests/unit/test_openai_compat.py`.
 
-- [ ] **Step 1: `backend/app/ai_providers/base.py`**
+- [x] **Step 1: `backend/app/ai_providers/base.py`**
 
 ```python
 from abc import ABC, abstractmethod
@@ -2857,7 +2857,7 @@ class BaseProvider(ABC):
         ...
 ```
 
-- [ ] **Step 2: `backend/app/ai_providers/openai_compat.py`**
+- [x] **Step 2: `backend/app/ai_providers/openai_compat.py`**
 
 ```python
 from openai import AsyncOpenAI
@@ -2897,7 +2897,7 @@ class OpenAICompatProvider(BaseProvider):
                           usage=usage, raw=resp.model_dump())
 ```
 
-- [ ] **Step 3: Write failing test `backend/tests/unit/test_openai_compat.py`**
+- [x] **Step 3: Write failing test `backend/tests/unit/test_openai_compat.py`**
 
 ```python
 import pytest
@@ -2929,9 +2929,9 @@ async def test_chat_returns_content_and_usage():
     assert result.usage.completion_tokens == 5
 ```
 
-- [ ] **Step 4: Run tests** — Expected: PASS.
+- [x] **Step 4: Run tests** — Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/ai_providers/base.py backend/app/ai_providers/openai_compat.py backend/tests/unit/test_openai_compat.py
@@ -2944,7 +2944,7 @@ git commit -m "feat(ai_providers): add BaseProvider + OpenAICompat adapter"
 
 **Files:** Create `backend/app/ai_providers/registry.py`, `backend/tests/unit/test_registry.py`.
 
-- [ ] **Step 1: Implement `backend/app/ai_providers/registry.py`**
+- [x] **Step 1: Implement `backend/app/ai_providers/registry.py`**
 
 ```python
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -3004,7 +3004,7 @@ async def load_from_db(db: AsyncSession) -> None:
         _registry.bind_role(b.role.value, provider=provider.name, model=b.model)
 ```
 
-- [ ] **Step 2: Write failing test `backend/tests/unit/test_registry.py`**
+- [x] **Step 2: Write failing test `backend/tests/unit/test_registry.py`**
 
 ```python
 import pytest
@@ -3042,9 +3042,9 @@ def test_unbound_role_raises():
         reg.role("writer")
 ```
 
-- [ ] **Step 3: Run tests** — Expected: PASS.
+- [x] **Step 3: Run tests** — Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/app/ai_providers/registry.py backend/tests/unit/test_registry.py
@@ -3057,7 +3057,7 @@ git commit -m "feat(ai_providers): add ProviderRegistry with role binding + DB l
 
 **Files:** Create `backend/app/ai_providers/{schemas.py,service.py,routes.py}`; modify `backend/app/api/router.py`; create `backend/tests/integration/test_ai_provider_routes.py`.
 
-- [ ] **Step 1: `backend/app/ai_providers/schemas.py`**
+- [x] **Step 1: `backend/app/ai_providers/schemas.py`**
 
 ```python
 import uuid
@@ -3104,7 +3104,7 @@ class RoleBindingOut(BaseModel):
     model: str
 ```
 
-- [ ] **Step 2: `backend/app/ai_providers/service.py`**
+- [x] **Step 2: `backend/app/ai_providers/service.py`**
 
 ```python
 import uuid
@@ -3162,7 +3162,7 @@ async def list_role_bindings(db: AsyncSession) -> list[RoleBinding]:
     return list((await db.execute(select(RoleBinding))).scalars().all())
 ```
 
-- [ ] **Step 3: `backend/app/ai_providers/routes.py`**
+- [x] **Step 3: `backend/app/ai_providers/routes.py`**
 
 ```python
 import uuid
@@ -3231,11 +3231,11 @@ async def list_bindings(db: AsyncSession = Depends(get_db),
     return [RoleBindingOut.model_validate(r) for r in await service.list_role_bindings(db)]
 ```
 
-- [ ] **Step 4: Update `backend/app/api/router.py`** — add `from app.ai_providers.routes import router as ai_providers_router` and include it.
+- [x] **Step 4: Update `backend/app/api/router.py`** — add `from app.ai_providers.routes import router as ai_providers_router` and include it.
 
-- [ ] **Step 5: Smoke test** — start compose, hit endpoints with auth. Skip unit/integration tests for now (covered by next tasks via the registry).
+- [x] **Step 5: Smoke test** — start compose, hit endpoints with auth. Skip unit/integration tests for now (covered by next tasks via the registry).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app/ai_providers backend/app/api/router.py
@@ -3248,7 +3248,7 @@ git commit -m "feat(ai_providers): add CRUD routes for providers and role bindin
 
 **Files:** Create `backend/app/drafts/__init__.py`, `backend/app/drafts/models.py`; update `backend/alembic/env.py`; generate migration.
 
-- [ ] **Step 1: Implement `backend/app/drafts/models.py`**
+- [x] **Step 1: Implement `backend/app/drafts/models.py`**
 
 ```python
 import enum
@@ -3303,13 +3303,13 @@ class ReviewReport(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 ```
 
-- [ ] **Step 2: Update `backend/alembic/env.py`** — add `from app.drafts.models import Draft, ReviewReport  # noqa: F401`.
+- [x] **Step 2: Update `backend/alembic/env.py`** — add `from app.drafts.models import Draft, ReviewReport  # noqa: F401`.
 
-- [ ] **Step 3: Update `backend/tests/integration/conftest.py`** — same import.
+- [x] **Step 3: Update `backend/tests/integration/conftest.py`** — same import.
 
-- [ ] **Step 4: Generate + apply migration** (temp pg, message: `"create drafts and review_reports tables"`).
+- [x] **Step 4: Generate + apply migration** (temp pg, message: `"create drafts and review_reports tables"`).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/drafts/__init__.py backend/app/drafts/models.py backend/alembic backend/tests/integration/conftest.py
@@ -3322,7 +3322,7 @@ git commit -m "feat(drafts): add Draft and ReviewReport models + migration"
 
 **Files:** Create `backend/app/rewriter/__init__.py`, `backend/app/rewriter/prompt_builder.py`, `backend/tests/unit/test_prompt_builder.py`.
 
-- [ ] **Step 1: Write failing test `backend/tests/unit/test_prompt_builder.py`**
+- [x] **Step 1: Write failing test `backend/tests/unit/test_prompt_builder.py`**
 
 ```python
 from app.rewriter.prompt_builder import build_title_messages, build_content_messages
@@ -3357,7 +3357,7 @@ def test_build_content_truncates_long_input():
     assert len(user_msg.content) <= 8500
 ```
 
-- [ ] **Step 2: Implement `backend/app/rewriter/prompt_builder.py`**
+- [x] **Step 2: Implement `backend/app/rewriter/prompt_builder.py`**
 
 ```python
 from app.ai_providers.base import Message
@@ -3413,9 +3413,9 @@ def build_content_messages(*, account_content_prompt: str, category: str, style_
             Message(role="user", content="\n".join(user_parts))]
 ```
 
-- [ ] **Step 3: Run tests** — Expected: PASS.
+- [x] **Step 3: Run tests** — Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/app/rewriter backend/tests/unit/test_prompt_builder.py
@@ -3428,7 +3428,7 @@ git commit -m "feat(rewriter): add prompt builder for title and content"
 
 **Files:** Create `backend/app/reviewer/__init__.py`, `backend/app/reviewer/sensitive_words.py`, `backend/data/sensitive_words.txt`, `backend/tests/unit/test_sensitive_words.py`.
 
-- [ ] **Step 1: Create `backend/data/sensitive_words.txt`** (seed file — user can extend later)
+- [x] **Step 1: Create `backend/data/sensitive_words.txt`** (seed file — user can extend later)
 
 ```
 最佳
@@ -3442,7 +3442,7 @@ git commit -m "feat(rewriter): add prompt builder for title and content"
 诈骗
 ```
 
-- [ ] **Step 2: Write failing test `backend/tests/unit/test_sensitive_words.py`**
+- [x] **Step 2: Write failing test `backend/tests/unit/test_sensitive_words.py`**
 
 ```python
 from pathlib import Path
@@ -3473,7 +3473,7 @@ def test_from_file_skips_blanks_and_comments(tmp_path):
     assert checker.check("这里有禁词存在") == ["禁词"]
 ```
 
-- [ ] **Step 3: Implement `backend/app/reviewer/sensitive_words.py`**
+- [x] **Step 3: Implement `backend/app/reviewer/sensitive_words.py`**
 
 ```python
 from pathlib import Path
@@ -3497,11 +3497,11 @@ class SensitiveWordChecker:
         return sorted({w for w in self._words if w in text})
 ```
 
-- [ ] **Step 4: Run tests** — Expected: PASS.
+- [x] **Step 4: Run tests** — Expected: PASS.
 
-- [ ] **Step 5: Create empty `backend/app/reviewer/__init__.py`**
+- [x] **Step 5: Create empty `backend/app/reviewer/__init__.py`**
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app/reviewer backend/data/sensitive_words.txt backend/tests/unit/test_sensitive_words.py
@@ -3516,7 +3516,7 @@ git commit -m "feat(reviewer): add sensitive-word blacklist checker"
 
 Each reviewer is a function that takes inputs + a chat-callable and returns a `dict` with `score` (0-100), `issues` (list[str]), and `model` (str). They share a common contract.
 
-- [ ] **Step 1: Implement `backend/app/reviewer/compliance.py`**
+- [x] **Step 1: Implement `backend/app/reviewer/compliance.py`**
 
 ```python
 import json
@@ -3561,7 +3561,7 @@ async def review_compliance(*, provider: BaseProvider, model: str,
     return {"score": score, "issues": issues, "model": model}
 ```
 
-- [ ] **Step 2: Implement `backend/app/reviewer/originality.py`**
+- [x] **Step 2: Implement `backend/app/reviewer/originality.py`**
 
 ```python
 from app.ai_providers.base import BaseProvider, Message
@@ -3585,7 +3585,7 @@ async def review_originality(*, provider: BaseProvider, model: str,
             "model": model}
 ```
 
-- [ ] **Step 3: Implement `backend/app/reviewer/quality.py`**
+- [x] **Step 3: Implement `backend/app/reviewer/quality.py`**
 
 ```python
 from app.ai_providers.base import BaseProvider, Message
@@ -3607,7 +3607,7 @@ async def review_quality(*, provider: BaseProvider, model: str,
             "model": model}
 ```
 
-- [ ] **Step 4: Implement `backend/app/reviewer/clickbait.py`**
+- [x] **Step 4: Implement `backend/app/reviewer/clickbait.py`**
 
 ```python
 from app.ai_providers.base import BaseProvider, Message
@@ -3629,7 +3629,7 @@ async def review_clickbait(*, provider: BaseProvider, model: str,
             "model": model}
 ```
 
-- [ ] **Step 5: Implement `backend/app/reviewer/aggregator.py`**
+- [x] **Step 5: Implement `backend/app/reviewer/aggregator.py`**
 
 ```python
 def aggregate(reports: dict) -> int:
@@ -3647,7 +3647,7 @@ def aggregate(reports: dict) -> int:
     return int(total / weight_sum)
 ```
 
-- [ ] **Step 6: Write tests `backend/tests/unit/test_reviewers.py`**
+- [x] **Step 6: Write tests `backend/tests/unit/test_reviewers.py`**
 
 ```python
 import json
@@ -3720,9 +3720,9 @@ def test_aggregate_overall_score():
     assert overall == int(80 * 0.35 + 60 * 0.25 + 90 * 0.25 + 70 * 0.15)
 ```
 
-- [ ] **Step 7: Run tests** — Expected: PASS.
+- [x] **Step 7: Run tests** — Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add backend/app/reviewer backend/tests/unit/test_reviewers.py
@@ -3735,7 +3735,7 @@ git commit -m "feat(reviewer): add 4-dimension reviewers + aggregator"
 
 **Files:** Create `backend/app/tasks/rewrite.py`, `backend/app/tasks/review.py`; update `backend/app/tasks/celery_app.py`; create `backend/tests/integration/test_rewrite_pipeline.py`.
 
-- [ ] **Step 1: Update `backend/app/tasks/celery_app.py`** — extend `include`:
+- [x] **Step 1: Update `backend/app/tasks/celery_app.py`** — extend `include`:
 
 ```python
 include=[
@@ -3755,7 +3755,7 @@ task_routes={
 },
 ```
 
-- [ ] **Step 2: Implement `backend/app/tasks/rewrite.py`**
+- [x] **Step 2: Implement `backend/app/tasks/rewrite.py`**
 
 ```python
 """Rewrite pipeline: title -> content -> review (4-dim group) -> aggregate."""
@@ -3879,7 +3879,7 @@ def run_pipeline(self, draft_id: str,
     asyncio.run(_do_rewrite(uuid.UUID(draft_id), override_title, override_content))
 ```
 
-- [ ] **Step 3: Create `backend/app/tasks/review.py`** (placeholder for future "re-review only" — Stage 4 may use)
+- [x] **Step 3: Create `backend/app/tasks/review.py`** (placeholder for future "re-review only" — Stage 4 may use)
 
 ```python
 """Re-run only the review stage on an existing draft."""
@@ -3888,7 +3888,7 @@ import uuid
 # Implementation deferred until needed; keep file present to satisfy celery include.
 ```
 
-- [ ] **Step 4: Write integration test `backend/tests/integration/test_rewrite_pipeline.py`**
+- [x] **Step 4: Write integration test `backend/tests/integration/test_rewrite_pipeline.py`**
 
 ```python
 import json
@@ -3961,9 +3961,9 @@ async def test_rewrite_pipeline_produces_draft_and_report(db_session, stub_regis
     assert report.compliance["score"] == 88
 ```
 
-- [ ] **Step 5: Run tests** — Expected: PASS.
+- [x] **Step 5: Run tests** — Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app/tasks/rewrite.py backend/app/tasks/review.py backend/app/tasks/celery_app.py backend/tests/integration/test_rewrite_pipeline.py
@@ -3976,7 +3976,7 @@ git commit -m "feat(tasks): add rewrite pipeline (title + content + 4-dim review
 
 **Files:** Create `backend/app/drafts/{schemas.py,service.py,routes.py}`; modify `backend/app/api/router.py`; create `backend/tests/integration/test_drafts_routes.py`.
 
-- [ ] **Step 1: `backend/app/drafts/schemas.py`**
+- [x] **Step 1: `backend/app/drafts/schemas.py`**
 
 ```python
 import uuid
@@ -4026,7 +4026,7 @@ class DraftEdit(BaseModel):
     content_html: str | None = None
 ```
 
-- [ ] **Step 2: `backend/app/drafts/service.py`**
+- [x] **Step 2: `backend/app/drafts/service.py`**
 
 ```python
 import uuid
@@ -4075,7 +4075,7 @@ async def update_draft(db: AsyncSession, draft: Draft, *, title: str | None,
     return draft
 ```
 
-- [ ] **Step 3: `backend/app/drafts/routes.py`**
+- [x] **Step 3: `backend/app/drafts/routes.py`**
 
 ```python
 import uuid
@@ -4154,11 +4154,11 @@ async def get_report(draft_id: uuid.UUID,
     return ReviewReportOut.model_validate(report)
 ```
 
-- [ ] **Step 4: Update `backend/app/api/router.py`** — include `drafts_router`.
+- [x] **Step 4: Update `backend/app/api/router.py`** — include `drafts_router`.
 
-- [ ] **Step 5: Smoke test via integration tests** — covered by `test_rewrite_pipeline.py` plus add minimal route auth check (skip for brevity; existing tests confirm flow).
+- [x] **Step 5: Smoke test via integration tests** — covered by `test_rewrite_pipeline.py` plus add minimal route auth check (skip for brevity; existing tests confirm flow).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app/drafts backend/app/api/router.py
@@ -4171,7 +4171,7 @@ git commit -m "feat(drafts): add CRUD + rewrite trigger routes + report fetch"
 
 **Files:** Create `frontend/src/pages/Drafts.tsx`, `frontend/src/pages/DraftDetail.tsx`, `frontend/src/pages/Settings.tsx`; modify `frontend/src/App.tsx`; extend Library page with selection.
 
-- [ ] **Step 1: Modify `frontend/src/pages/Library.tsx`** to add multi-select + "改写"按钮 wiring (open a small modal that picks an account_id then POST to `/drafts/rewrite`). For brevity, key snippet:
+- [x] **Step 1: Modify `frontend/src/pages/Library.tsx`** to add multi-select + "改写"按钮 wiring (open a small modal that picks an account_id then POST to `/drafts/rewrite`). For brevity, key snippet:
 
 ```tsx
 // Inside Library component, alongside `data`:
@@ -4196,7 +4196,7 @@ const triggerRewrite = useMutation({
 
 In the list, add a checkbox per row and a sticky bottom bar showing `当前选中 N 篇` + account select + "开始改写" button.
 
-- [ ] **Step 2: Create `frontend/src/pages/Drafts.tsx`** — list with status badges, per-row link to detail.
+- [x] **Step 2: Create `frontend/src/pages/Drafts.tsx`** — list with status badges, per-row link to detail.
 
 ```tsx
 import { useQuery } from "@tanstack/react-query";
@@ -4238,7 +4238,7 @@ export default function Drafts() {
 }
 ```
 
-- [ ] **Step 3: Create `frontend/src/pages/DraftDetail.tsx`** — show title (editable), content_html (preview + textarea), and review report (4 dim score boxes + issues list).
+- [x] **Step 3: Create `frontend/src/pages/DraftDetail.tsx`** — show title (editable), content_html (preview + textarea), and review report (4 dim score boxes + issues list).
 
 ```tsx
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -4322,7 +4322,7 @@ export default function DraftDetail() {
 }
 ```
 
-- [ ] **Step 4: Create `frontend/src/pages/Settings.tsx`** — minimal CRUD for AI providers + role bindings (use shadcn-like simple form). Skeleton:
+- [x] **Step 4: Create `frontend/src/pages/Settings.tsx`** — minimal CRUD for AI providers + role bindings (use shadcn-like simple form). Skeleton:
 
 ```tsx
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -4416,11 +4416,11 @@ function RoleRow({ role, providers, current, onSave }: any) {
 }
 ```
 
-- [ ] **Step 5: Update `frontend/src/App.tsx`** — add `/drafts`, `/drafts/:id`, `/settings` routes and nav links.
+- [x] **Step 5: Update `frontend/src/App.tsx`** — add `/drafts`, `/drafts/:id`, `/settings` routes and nav links.
 
-- [ ] **Step 6: Smoke test** — log in, configure a provider in `/settings`, bind roles, go to `/library`, paste URL(s), wait for crawl, select items, pick account, click 改写; navigate to `/drafts`, verify draft appears and progresses to `reviewed`; open detail and confirm 4-dim report renders.
+- [x] **Step 6: Smoke test** — log in, configure a provider in `/settings`, bind roles, go to `/library`, paste URL(s), wait for crawl, select items, pick account, click 改写; navigate to `/drafts`, verify draft appears and progresses to `reviewed`; open detail and confirm 4-dim report renders.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add frontend/src/pages frontend/src/App.tsx
@@ -4451,7 +4451,7 @@ Goal: Manage `access_token` per公众号 in Redis, upload images to WeChat perma
 
 **Files:** Create `backend/app/images/__init__.py`, `backend/app/images/models.py`; update `backend/alembic/env.py`; generate migration.
 
-- [ ] **Step 1: Implement `backend/app/images/models.py`**
+- [x] **Step 1: Implement `backend/app/images/models.py`**
 
 ```python
 import enum
@@ -4490,11 +4490,11 @@ class Image(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 ```
 
-- [ ] **Step 2: Update `backend/alembic/env.py`** — `from app.images.models import Image  # noqa: F401`. Same in `tests/integration/conftest.py`.
+- [x] **Step 2: Update `backend/alembic/env.py`** — `from app.images.models import Image  # noqa: F401`. Same in `tests/integration/conftest.py`.
 
-- [ ] **Step 3: Generate + apply migration** (message: `"create images table"`).
+- [x] **Step 3: Generate + apply migration** (message: `"create images table"`).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/app/images backend/alembic backend/tests/integration/conftest.py
@@ -4507,7 +4507,7 @@ git commit -m "feat(images): add Image model + migration"
 
 **Files:** Create `backend/app/wechat/__init__.py`, `backend/app/wechat/token.py`, `backend/tests/unit/test_wechat_token.py`.
 
-- [ ] **Step 1: Write failing test `backend/tests/unit/test_wechat_token.py`**
+- [x] **Step 1: Write failing test `backend/tests/unit/test_wechat_token.py`**
 
 ```python
 import pytest
@@ -4549,7 +4549,7 @@ async def test_token_error_response_raises(monkeypatch):
             await get_access_token(account_id="abc", appid="x", secret="y")
 ```
 
-- [ ] **Step 2: Implement `backend/app/wechat/token.py`**
+- [x] **Step 2: Implement `backend/app/wechat/token.py`**
 
 ```python
 import httpx
@@ -4597,11 +4597,11 @@ async def invalidate(account_id: str) -> None:
     await _get_redis().delete(_redis_key(account_id))
 ```
 
-- [ ] **Step 3: Create empty `backend/app/wechat/__init__.py`**
+- [x] **Step 3: Create empty `backend/app/wechat/__init__.py`**
 
-- [ ] **Step 4: Run tests** — Expected: PASS.
+- [x] **Step 4: Run tests** — Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/wechat backend/tests/unit/test_wechat_token.py
@@ -4614,7 +4614,7 @@ git commit -m "feat(wechat): add access_token fetcher + Redis cache with refresh
 
 **Files:** Create `backend/app/wechat/material.py`, `backend/tests/unit/test_wechat_material.py`.
 
-- [ ] **Step 1: Write failing test `backend/tests/unit/test_wechat_material.py`**
+- [x] **Step 1: Write failing test `backend/tests/unit/test_wechat_material.py`**
 
 ```python
 import pytest
@@ -4642,7 +4642,7 @@ async def test_upload_image_error_raises():
             await upload_image(access_token="TOK", file_path=__file__)
 ```
 
-- [ ] **Step 2: Implement `backend/app/wechat/material.py`**
+- [x] **Step 2: Implement `backend/app/wechat/material.py`**
 
 ```python
 from pathlib import Path
@@ -4670,9 +4670,9 @@ async def upload_image(*, access_token: str, file_path: str) -> dict:
     return {"media_id": data["media_id"], "url": data.get("url", "")}
 ```
 
-- [ ] **Step 3: Run tests** — Expected: PASS.
+- [x] **Step 3: Run tests** — Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/app/wechat/material.py backend/tests/unit/test_wechat_material.py
@@ -4685,7 +4685,7 @@ git commit -m "feat(wechat): add permanent material image upload"
 
 **Files:** Create `backend/app/wechat/draft.py`, `backend/tests/unit/test_wechat_draft.py`.
 
-- [ ] **Step 1: Write failing test `backend/tests/unit/test_wechat_draft.py`**
+- [x] **Step 1: Write failing test `backend/tests/unit/test_wechat_draft.py`**
 
 ```python
 import pytest
@@ -4714,7 +4714,7 @@ async def test_push_draft_token_invalid_raises():
                              thumb_media_id="C", author="a", digest="d")
 ```
 
-- [ ] **Step 2: Implement `backend/app/wechat/draft.py`**
+- [x] **Step 2: Implement `backend/app/wechat/draft.py`**
 
 ```python
 import httpx
@@ -4755,9 +4755,9 @@ async def push_draft(*, access_token: str, title: str, content_html: str,
     return data["media_id"]
 ```
 
-- [ ] **Step 3: Run tests** — Expected: PASS.
+- [x] **Step 3: Run tests** — Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/app/wechat/draft.py backend/tests/unit/test_wechat_draft.py
@@ -4770,7 +4770,7 @@ git commit -m "feat(wechat): add draft push to /cgi-bin/draft/add"
 
 **Files:** Create `backend/app/images/{schemas.py,service.py}`, `backend/app/tasks/images.py`; extend `backend/app/tasks/celery_app.py` and `backend/app/tasks/rewrite.py`; create `backend/tests/integration/test_image_processing.py`.
 
-- [ ] **Step 1: `backend/app/images/schemas.py`**
+- [x] **Step 1: `backend/app/images/schemas.py`**
 
 ```python
 import uuid
@@ -4790,7 +4790,7 @@ class ImageOut(BaseModel):
     error_msg: str | None
 ```
 
-- [ ] **Step 2: `backend/app/images/service.py`**
+- [x] **Step 2: `backend/app/images/service.py`**
 
 ```python
 import uuid
@@ -4838,7 +4838,7 @@ async def mark_removed(db: AsyncSession, image: Image) -> Image:
     return image
 ```
 
-- [ ] **Step 3: `backend/app/tasks/images.py`**
+- [x] **Step 3: `backend/app/tasks/images.py`**
 
 ```python
 """Process images for a draft: download original, upload to WeChat, rewrite content_html."""
@@ -4937,9 +4937,9 @@ def process_draft_images(self, draft_id: str) -> None:
     asyncio.run(_do_process(uuid.UUID(draft_id)))
 ```
 
-- [ ] **Step 4: Update `backend/app/tasks/celery_app.py`** — add `"app.tasks.images"` to `include`.
+- [x] **Step 4: Update `backend/app/tasks/celery_app.py`** — add `"app.tasks.images"` to `include`.
 
-- [ ] **Step 5: Hook image creation into rewrite pipeline** — modify `backend/app/tasks/rewrite.py` `_do_rewrite` so after the review report is committed, it also creates `Image` rows from `item.images`:
+- [x] **Step 5: Hook image creation into rewrite pipeline** — modify `backend/app/tasks/rewrite.py` `_do_rewrite` so after the review report is committed, it also creates `Image` rows from `item.images`:
 
 ```python
 # Add import at top:
@@ -4952,7 +4952,7 @@ if item.images:
         original_urls=[img["url"] for img in item.images])
 ```
 
-- [ ] **Step 6: Write integration test `backend/tests/integration/test_image_processing.py`**
+- [x] **Step 6: Write integration test `backend/tests/integration/test_image_processing.py`**
 
 ```python
 import pytest
@@ -5006,9 +5006,9 @@ async def test_process_uploads_each_image(db_session, monkeypatch, tmp_path):
     assert "x/a.jpg" not in refreshed_draft.content_html
 ```
 
-- [ ] **Step 7: Run tests** — Expected: PASS.
+- [x] **Step 7: Run tests** — Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add backend/app/images backend/app/tasks/images.py backend/app/tasks/celery_app.py backend/app/tasks/rewrite.py backend/tests/integration/test_image_processing.py
@@ -5021,7 +5021,7 @@ git commit -m "feat(images): add image processing task (download + upload + URL 
 
 **Files:** Create `backend/app/tasks/publish.py`; extend `backend/app/drafts/routes.py`; update `backend/app/tasks/celery_app.py`.
 
-- [ ] **Step 1: Implement `backend/app/tasks/publish.py`**
+- [x] **Step 1: Implement `backend/app/tasks/publish.py`**
 
 ```python
 import asyncio
@@ -5105,7 +5105,7 @@ def publish_draft(self, draft_id: str) -> None:
     asyncio.run(_do_publish(uuid.UUID(draft_id)))
 ```
 
-- [ ] **Step 2: Update `backend/app/tasks/celery_app.py`** — add to include and routes:
+- [x] **Step 2: Update `backend/app/tasks/celery_app.py`** — add to include and routes:
 
 ```python
 include=[..., "app.tasks.images", "app.tasks.publish"],
@@ -5116,7 +5116,7 @@ task_routes={
 },
 ```
 
-- [ ] **Step 3: Append publish route in `backend/app/drafts/routes.py`**
+- [x] **Step 3: Append publish route in `backend/app/drafts/routes.py`**
 
 ```python
 @router.post("/{draft_id}/publish-to-wechat", response_model=DraftOut, status_code=202)
@@ -5133,9 +5133,9 @@ async def publish(draft_id: uuid.UUID,
     return DraftOut.model_validate(obj)
 ```
 
-- [ ] **Step 4: Smoke test (manual)** — full pipeline through publish requires real WeChat creds; verify with a test 服务号 / 订阅号 (认证号). Skip automated test for the route end-to-end; the unit/integration tests for `_do_publish` (analogous to image test) cover the logic.
+- [x] **Step 4: Smoke test (manual)** — full pipeline through publish requires real WeChat creds; verify with a test 服务号 / 订阅号 (认证号). Skip automated test for the route end-to-end; the unit/integration tests for `_do_publish` (analogous to image test) cover the logic.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/tasks/publish.py backend/app/tasks/celery_app.py backend/app/drafts/routes.py
@@ -5148,7 +5148,7 @@ git commit -m "feat(publish): add publish_draft task + WeChat draft push route"
 
 **Files:** Create `backend/app/images/routes.py`; modify `backend/app/api/router.py`.
 
-- [ ] **Step 1: `backend/app/images/routes.py`**
+- [x] **Step 1: `backend/app/images/routes.py`**
 
 ```python
 import uuid
@@ -5190,9 +5190,9 @@ async def remove(image_id: uuid.UUID,
     return ImageOut.model_validate(await service.mark_removed(db, img))
 ```
 
-- [ ] **Step 2: Update `backend/app/api/router.py`** — include `images_router`.
+- [x] **Step 2: Update `backend/app/api/router.py`** — include `images_router`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add backend/app/images/routes.py backend/app/api/router.py
@@ -5205,7 +5205,7 @@ git commit -m "feat(images): add image listing, cover toggle, removal routes"
 
 **Files:** Modify `frontend/src/pages/DraftDetail.tsx`.
 
-- [ ] **Step 1: Extend `DraftDetail.tsx`** — add imports + queries inside the existing component (above the `return`):
+- [x] **Step 1: Extend `DraftDetail.tsx`** — add imports + queries inside the existing component (above the `return`):
 
 ```tsx
 type Img = { id: string; original_url: string; wechat_url: string | null;
@@ -5230,7 +5230,7 @@ const publish = useMutation({
 });
 ```
 
-- [ ] **Step 2: Add JSX blocks** below the report section:
+- [x] **Step 2: Add JSX blocks** below the report section:
 
 ```tsx
 <div>
@@ -5259,9 +5259,9 @@ const publish = useMutation({
 </button>
 ```
 
-- [ ] **Step 3: Manual smoke test** — full E2E with real public账号: configure provider + account → paste URL → wait crawl → trigger rewrite → wait reviewed → open detail → verify report + image grid → set cover → push → verify draft appears in WeChat 公众号 草稿箱.
+- [x] **Step 3: Manual smoke test** — full E2E with real public账号: configure provider + account → paste URL → wait crawl → trigger rewrite → wait reviewed → open detail → verify report + image grid → set cover → push → verify draft appears in WeChat 公众号 草稿箱.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/pages/DraftDetail.tsx
@@ -5287,9 +5287,9 @@ git commit -m "feat(frontend): add image review panel + publish-to-wechat button
 
 **Files:** Create `frontend/playwright.config.ts`, `frontend/e2e/golden_path.spec.ts`.
 
-- [ ] **Step 1:** `cd frontend && pnpm add -D @playwright/test && pnpm exec playwright install chromium`
+- [x] **Step 1:** `cd frontend && pnpm add -D @playwright/test && pnpm exec playwright install chromium`
 
-- [ ] **Step 2: `frontend/playwright.config.ts`**
+- [x] **Step 2: `frontend/playwright.config.ts`**
 
 ```ts
 import { defineConfig } from "@playwright/test";
@@ -5301,7 +5301,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 3: `frontend/e2e/golden_path.spec.ts`**
+- [x] **Step 3: `frontend/e2e/golden_path.spec.ts`**
 
 ```ts
 import { test, expect } from "@playwright/test";
@@ -5315,9 +5315,9 @@ test("login flow", async ({ page }) => {
 });
 ```
 
-- [ ] **Step 4: Run** — `pnpm exec playwright test` — Expected: PASS.
+- [x] **Step 4: Run** — `pnpm exec playwright test` — Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/playwright.config.ts frontend/e2e
@@ -5330,7 +5330,7 @@ git commit -m "test(e2e): add Playwright login smoke test"
 
 **Files:** Create `README.md`.
 
-- [ ] **Step 1: Create `README.md`**
+- [x] **Step 1: Create `README.md`**
 
 ````markdown
 # 微信公众号批量改写系统
@@ -5400,7 +5400,7 @@ docker compose exec postgres pg_dump -U postgres wechat_rewriter > backup.sql
 - Single-user only.
 ````
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add README.md
