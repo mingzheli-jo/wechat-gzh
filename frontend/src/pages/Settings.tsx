@@ -119,7 +119,125 @@ export default function Settings() {
           );
         })}
       </section>
+
+      <UsageDashboard />
     </div>
+  );
+}
+
+type DailyUsage = {
+  day: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  cost_estimate: number;
+};
+
+type RoleUsage = {
+  role: string | null;
+  provider: string | null;
+  model: string;
+  calls: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  cost_estimate: number;
+};
+
+type UsageSummary = {
+  days: number;
+  daily: DailyUsage[];
+  by_role: RoleUsage[];
+  total_prompt_tokens: number;
+  total_completion_tokens: number;
+  total_cost: number;
+};
+
+function UsageDashboard() {
+  const usage = useQuery({
+    queryKey: ["usage-summary"],
+    queryFn: async () =>
+      (await api.get<UsageSummary>("/usage/summary?days=30")).data,
+  });
+
+  if (!usage.data) return null;
+  const u = usage.data;
+  const maxDay =
+    u.daily.reduce((m, d) => Math.max(m, d.cost_estimate), 0) || 1;
+
+  return (
+    <section>
+      <h2 className="text-xl font-semibold mb-3">AI 用量（近 30 天）</h2>
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="border rounded p-3">
+          <div className="text-xs text-slate-500">总成本（估算）</div>
+          <div className="text-2xl font-semibold">
+            ${u.total_cost.toFixed(4)}
+          </div>
+        </div>
+        <div className="border rounded p-3">
+          <div className="text-xs text-slate-500">Prompt tokens</div>
+          <div className="text-2xl font-semibold">
+            {u.total_prompt_tokens.toLocaleString()}
+          </div>
+        </div>
+        <div className="border rounded p-3">
+          <div className="text-xs text-slate-500">Completion tokens</div>
+          <div className="text-2xl font-semibold">
+            {u.total_completion_tokens.toLocaleString()}
+          </div>
+        </div>
+      </div>
+
+      {u.daily.length > 0 && (
+        <div className="border rounded p-3 mb-4">
+          <div className="text-xs text-slate-500 mb-2">每日成本</div>
+          <div className="flex items-end gap-1 h-20">
+            {u.daily.map((d) => (
+              <div
+                key={d.day}
+                className="flex-1 bg-slate-700 rounded-t"
+                style={{ height: `${(d.cost_estimate / maxDay) * 100}%` }}
+                title={`${d.day}: $${d.cost_estimate.toFixed(4)}`}
+              />
+            ))}
+          </div>
+          <div className="flex justify-between text-xs text-slate-500 mt-1">
+            <span>{u.daily[0]?.day}</span>
+            <span>{u.daily[u.daily.length - 1]?.day}</span>
+          </div>
+        </div>
+      )}
+
+      {u.by_role.length > 0 && (
+        <table className="w-full text-sm border">
+          <thead className="bg-slate-100">
+            <tr>
+              <th className="p-2 text-left">角色</th>
+              <th className="p-2 text-left">Provider/Model</th>
+              <th className="p-2 text-right">次数</th>
+              <th className="p-2 text-right">Tokens</th>
+              <th className="p-2 text-right">成本</th>
+            </tr>
+          </thead>
+          <tbody>
+            {u.by_role.map((r, i) => (
+              <tr key={i} className="border-t">
+                <td className="p-2">{r.role ?? "-"}</td>
+                <td className="p-2">
+                  {r.provider ?? "-"} / {r.model}
+                </td>
+                <td className="p-2 text-right">{r.calls}</td>
+                <td className="p-2 text-right">
+                  {(r.prompt_tokens + r.completion_tokens).toLocaleString()}
+                </td>
+                <td className="p-2 text-right">
+                  ${r.cost_estimate.toFixed(4)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
   );
 }
 

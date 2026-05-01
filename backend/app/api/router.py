@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.accounts.routes import router as accounts_router
 from app.ai_providers.routes import router as ai_providers_router
+from app.ai_providers.usage_routes import router as usage_router
 from app.auth.routes import router as auth_router
 from app.drafts.routes import router as drafts_router
 from app.images.routes import router as images_router
@@ -21,3 +22,4 @@ api_router.include_router(library_router)
 api_router.include_router(ai_providers_router)
 api_router.include_router(drafts_router)
 api_router.include_router(images_router)
+api_router.include_router(usage_router)
