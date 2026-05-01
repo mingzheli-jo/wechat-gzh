@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
-from typing import Any, cast
+from typing import Any
 
-from jose import jwt  # type: ignore[import-untyped]
+from jose import jwt
 
 from app.config import get_settings
 
@@ -22,7 +22,7 @@ def create_access_token(
         "exp": datetime.now(UTC) + expires,
         "iat": datetime.now(UTC),
     }
-    return cast(str, jwt.encode(payload, secret, algorithm=algorithm))
+    return jwt.encode(payload, secret, algorithm=algorithm)
 
 
 def decode_token(
@@ -32,9 +32,6 @@ def decode_token(
     algorithm: str | None = None,
 ) -> dict[str, Any]:
     s = get_settings()
-    return cast(
-        dict[str, Any],
-        jwt.decode(
-            token, secret or s.jwt_secret, algorithms=[algorithm or s.jwt_algorithm]
-        ),
+    return jwt.decode(
+        token, secret or s.jwt_secret, algorithms=[algorithm or s.jwt_algorithm]
     )
