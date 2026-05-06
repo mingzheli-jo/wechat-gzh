@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import {
   Badge,
@@ -55,12 +55,24 @@ const ROLE_DESCRIPTIONS: Record<Role, string> = {
 // ---- Provider form ----
 
 interface ProviderFormProps {
+  existing?: Provider;
   onSuccess: () => void;
+  onCancel?: () => void;
 }
 
-function ProviderForm({ onSuccess }: ProviderFormProps) {
-  const [form, setForm] = useState<ProviderFormState>(EMPTY_PROVIDER_FORM);
-  const [open, setOpen] = useState(false);
+function ProviderForm({ existing, onSuccess, onCancel }: ProviderFormProps) {
+  const isEdit = Boolean(existing);
+  const [form, setForm] = useState<ProviderFormState>(
+    existing
+      ? {
+          name: existing.name,
+          base_url: existing.base_url,
+          api_key: "",
+          models: existing.models.join(", "),
+        }
+      : EMPTY_PROVIDER_FORM
+  );
+  const [open, setOpen] = useState(isEdit);
 
   function set(field: keyof ProviderFormState, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -82,7 +94,28 @@ function ProviderForm({ onSuccess }: ProviderFormProps) {
     },
   });
 
-  if (!open) {
+  const update = useMutation({
+    mutationFn: async () => {
+      const body: Record<string, unknown> = {
+        base_url: form.base_url,
+        models: form.models
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+      };
+      if (form.api_key) body.api_key = form.api_key;
+      return api.patch(`/ai-providers/${existing!.id}`, body);
+    },
+    onSuccess: () => {
+      onSuccess();
+      onCancel?.();
+    },
+  });
+
+  const busy = create.isPending || update.isPending;
+  const errored = create.isError || update.isError;
+
+  if (!isEdit && !open) {
     return (
       <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
         添加 Provider
@@ -108,7 +141,7 @@ function ProviderForm({ onSuccess }: ProviderFormProps) {
           margin: 0,
         }}
       >
-        新增 AI Provider
+        {isEdit ? "编辑 AI Provider" : "新增 AI Provider"}
       </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
@@ -118,6 +151,8 @@ function ProviderForm({ onSuccess }: ProviderFormProps) {
           onChange={(e) => set("name", e.target.value)}
           placeholder="例：Kimi"
           required
+          disabled={isEdit}
+          hint={isEdit ? "name 创建后不可修改" : undefined}
         />
         <Input
           label="Base URL"
@@ -133,8 +168,9 @@ function ProviderForm({ onSuccess }: ProviderFormProps) {
         type="password"
         value={form.api_key}
         onChange={(e) => set("api_key", e.target.value)}
-        placeholder="sk-..."
+        placeholder={isEdit ? "留空 = 不修改" : "sk-..."}
         style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)" }}
+        hint={isEdit ? "出于安全考虑当前 key 不可见" : undefined}
       />
 
       <Input
@@ -145,21 +181,29 @@ function ProviderForm({ onSuccess }: ProviderFormProps) {
         hint="逗号分隔"
       />
 
-      {create.isError && (
+      {errored && (
         <p style={{ fontSize: "var(--text-xs)", color: "var(--color-failed-fg)", margin: 0 }}>
-          添加失败，请检查填写内容后重试
+          {isEdit ? "更新失败，请检查填写内容后重试" : "添加失败，请检查填写内容后重试"}
         </p>
       )}
 
       <div style={{ display: "flex", gap: "var(--space-2)" }}>
         <Button
-          onClick={() => create.mutate()}
-          loading={create.isPending}
-          disabled={!form.name || !form.base_url || !form.api_key}
+          onClick={() => (isEdit ? update.mutate() : create.mutate())}
+          loading={busy}
+          disabled={
+            isEdit
+              ? !form.base_url
+              : !form.name || !form.base_url || !form.api_key
+          }
         >
           保存
         </Button>
-        <Button variant="ghost" onClick={() => setOpen(false)} disabled={create.isPending}>
+        <Button
+          variant="ghost"
+          onClick={() => (isEdit ? onCancel?.() : setOpen(false))}
+          disabled={busy}
+        >
           取消
         </Button>
       </div>
@@ -826,6 +870,10 @@ export default function Settings() {
   });
 
   const [savingRole, setSavingRole] = useState<Role | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deleteConfirmTimeout = useRef<number | null>(null);
 
   const upsertBinding = useMutation({
     mutationFn: async (b: Binding) => {
@@ -838,6 +886,41 @@ export default function Settings() {
     },
     onError: () => setSavingRole(null),
   });
+
+  const deleteProvider = useMutation({
+    mutationFn: async (id: string) => api.delete(`/ai-providers/${id}`),
+    onSuccess: () => {
+      setDeleteError(null);
+      qc.invalidateQueries({ queryKey: ["providers"] });
+    },
+    onError: () =>
+      setDeleteError("删除失败：可能存在历史用量记录或角色绑定。请先解绑角色后重试。"),
+  });
+
+  function isReferenced(providerId: string): boolean {
+    return (bindings.data ?? []).some((b) => b.provider_id === providerId);
+  }
+
+  function startDeleteConfirm(id: string) {
+    setDeleteError(null);
+    setDeleteConfirmId(id);
+    if (deleteConfirmTimeout.current !== null) {
+      window.clearTimeout(deleteConfirmTimeout.current);
+    }
+    deleteConfirmTimeout.current = window.setTimeout(() => {
+      setDeleteConfirmId(null);
+      deleteConfirmTimeout.current = null;
+    }, 5000);
+  }
+
+  function confirmDelete(id: string) {
+    if (deleteConfirmTimeout.current !== null) {
+      window.clearTimeout(deleteConfirmTimeout.current);
+      deleteConfirmTimeout.current = null;
+    }
+    setDeleteConfirmId(null);
+    deleteProvider.mutate(id);
+  }
 
   if (providers.isLoading) return <PageSpinner />;
 
@@ -867,58 +950,165 @@ export default function Settings() {
 
         {providers.data && providers.data.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column" }}>
-            {providers.data.map((p, i) => (
-              <div
-                key={p.id}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "auto 1fr auto",
-                  alignItems: "center",
-                  gap: "var(--space-4)",
-                  padding: "var(--space-4) var(--space-2)",
-                  borderBottom: "1px solid var(--color-surface-3)",
-                  borderTop: i === 0 ? "1px solid var(--color-surface-3)" : undefined,
-                }}
-              >
-                {/* Name + status */}
-                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-                  <p
-                    style={{
-                      fontSize: "var(--text-sm)",
-                      fontWeight: "var(--weight-medium)",
-                      color: "var(--color-ink)",
-                      margin: 0,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {p.name}
-                  </p>
-                  <Badge variant={p.enabled ? "done" : "default"}>
-                    {p.enabled ? "启用" : "停用"}
-                  </Badge>
-                </div>
-
-                {/* Base URL */}
-                <span
-                  className="mono"
+            {providers.data.map((p, i) => {
+              const referenced = isReferenced(p.id);
+              const isEditing = editingId === p.id;
+              const isConfirming = deleteConfirmId === p.id;
+              const isDeleting =
+                deleteProvider.isPending && deleteProvider.variables === p.id;
+              return (
+                <div
+                  key={p.id}
                   style={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
+                    borderTop: i === 0 ? "1px solid var(--color-surface-3)" : undefined,
+                    borderBottom: "1px solid var(--color-surface-3)",
                   }}
                 >
-                  {p.base_url}
-                </span>
+                  {isEditing ? (
+                    <div style={{ padding: "var(--space-4) var(--space-2)" }}>
+                      <ProviderForm
+                        existing={p}
+                        onSuccess={() =>
+                          qc.invalidateQueries({ queryKey: ["providers"] })
+                        }
+                        onCancel={() => setEditingId(null)}
+                      />
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "auto 1fr auto auto",
+                        alignItems: "center",
+                        gap: "var(--space-4)",
+                        padding: "var(--space-4) var(--space-2)",
+                      }}
+                    >
+                      {/* Name + status */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+                        <p
+                          style={{
+                            fontSize: "var(--text-sm)",
+                            fontWeight: "var(--weight-medium)",
+                            color: "var(--color-ink)",
+                            margin: 0,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {p.name}
+                        </p>
+                        <Badge variant={p.enabled ? "done" : "default"}>
+                          {p.enabled ? "启用" : "停用"}
+                        </Badge>
+                      </div>
 
-                {/* Models */}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-1)", justifyContent: "flex-end" }}>
-                  {p.models.map((m) => (
-                    <Badge key={m} variant="outline">{m}</Badge>
-                  ))}
+                      {/* Base URL */}
+                      <span
+                        className="mono"
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {p.base_url}
+                      </span>
+
+                      {/* Models */}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-1)", justifyContent: "flex-end" }}>
+                        {p.models.map((m) => (
+                          <Badge key={m} variant="outline">{m}</Badge>
+                        ))}
+                      </div>
+
+                      {/* Actions */}
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "var(--space-3)",
+                          alignItems: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingId(p.id);
+                            setDeleteConfirmId(null);
+                            setDeleteError(null);
+                          }}
+                          disabled={isDeleting}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            padding: 0,
+                            fontSize: "var(--text-xs)",
+                            color: "var(--color-link)",
+                            cursor: isDeleting ? "not-allowed" : "pointer",
+                            textDecoration: "underline",
+                          }}
+                        >
+                          编辑
+                        </button>
+                        {isConfirming ? (
+                          <button
+                            type="button"
+                            onClick={() => confirmDelete(p.id)}
+                            disabled={isDeleting}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              padding: 0,
+                              fontSize: "var(--text-xs)",
+                              color: "var(--color-failed-fg)",
+                              cursor: "pointer",
+                              fontWeight: "var(--weight-semi)",
+                              textDecoration: "underline",
+                            }}
+                          >
+                            确认删除？
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => startDeleteConfirm(p.id)}
+                            disabled={referenced || isDeleting}
+                            title={
+                              referenced
+                                ? "先解绑使用此 provider 的角色"
+                                : undefined
+                            }
+                            style={{
+                              background: "none",
+                              border: "none",
+                              padding: 0,
+                              fontSize: "var(--text-xs)",
+                              color: referenced
+                                ? "var(--color-ink-4)"
+                                : "var(--color-failed-fg)",
+                              cursor:
+                                referenced || isDeleting
+                                  ? "not-allowed"
+                                  : "pointer",
+                              textDecoration: "underline",
+                            }}
+                          >
+                            删除
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
+        )}
+
+        {deleteError && (
+          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-failed-fg)", margin: 0 }}>
+            {deleteError}
+          </p>
         )}
 
         <ProviderForm onSuccess={() => qc.invalidateQueries({ queryKey: ["providers"] })} />
