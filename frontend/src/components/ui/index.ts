@@ -5,3 +5,7 @@ export { Card, CardHeader, CardTitle } from "./Card";
 export { Modal, ConfirmModal } from "./Modal";
 export { Spinner, PageSpinner } from "./Spinner";
 export { EmptyState } from "./EmptyState";
+export { EyebrowLabel } from "./EyebrowLabel";
+export { HairlineRule } from "./HairlineRule";
+export { HairlineMeter } from "./HairlineMeter";
+export { ScoreNumber } from "./ScoreNumber";

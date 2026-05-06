@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "../api/client";
-import { Badge, Button, Card, PageSpinner } from "../components/ui";
+import { Badge, Button, Card, EyebrowLabel, PageSpinner, ScoreNumber } from "../components/ui";
 
 type Detail = {
   id: string;
@@ -41,21 +41,6 @@ const DIMS: { key: keyof Report; label: string; description: string }[] = [
   { key: "quality", label: "质量", description: "内容质量" },
   { key: "clickbait", label: "标题党", description: "标题诱导程度" },
 ];
-
-function ScoreRing({ score }: { score: number | undefined }) {
-  if (score === undefined) return <span style={{ fontSize: "var(--text-xl)", fontWeight: "var(--weight-semi)", color: "var(--color-ink-4)" }}>—</span>;
-  const color =
-    score >= 80
-      ? "var(--color-done-fg)"
-      : score >= 60
-      ? "var(--color-warn-fg)"
-      : "var(--color-failed-fg)";
-  return (
-    <span style={{ fontSize: "var(--text-2xl)", fontWeight: "var(--weight-semi)", color, lineHeight: 1 }}>
-      {score}
-    </span>
-  );
-}
 
 export default function DraftDetail() {
   const { id } = useParams<{ id: string }>();
@@ -249,18 +234,12 @@ export default function DraftDetail() {
         {/* Image review */}
         {images.data && images.data.length > 0 && (
           <section>
-            <h2
-              style={{
-                fontSize: "var(--text-sm)",
-                fontWeight: "var(--weight-semi)",
-                color: "var(--color-ink)",
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-                margin: "0 0 var(--space-4) 0",
-              }}
+            <EyebrowLabel
+              as="h2"
+              style={{ color: "var(--color-ink)", margin: "0 0 var(--space-4) 0" }}
             >
               图片复核
-            </h2>
+            </EyebrowLabel>
             <div
               style={{
                 display: "grid",
@@ -352,18 +331,9 @@ export default function DraftDetail() {
       >
         {/* Publish action */}
         <Card padding="md">
-          <p
-            style={{
-              fontSize: "var(--text-xs)",
-              fontWeight: "var(--weight-semi)",
-              color: "var(--color-ink-3)",
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              margin: "0 0 var(--space-3) 0",
-            }}
-          >
+          <EyebrowLabel style={{ margin: "0 0 var(--space-3) 0" }}>
             推送
-          </p>
+          </EyebrowLabel>
           <Button
             onClick={() => publish.mutate()}
             disabled={isPublished}
@@ -388,22 +358,11 @@ export default function DraftDetail() {
         {report.data && (
           <Card padding="md">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-4)" }}>
-              <p
-                style={{
-                  fontSize: "var(--text-xs)",
-                  fontWeight: "var(--weight-semi)",
-                  color: "var(--color-ink-3)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  margin: 0,
-                }}
-              >
-                审核报告
-              </p>
+              <EyebrowLabel>审核报告</EyebrowLabel>
               {report.data.overall_score !== null && (
                 <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)" }}>
-                  <ScoreRing score={report.data.overall_score} />
-                  <span style={{ fontSize: "var(--text-xs)", color: "var(--color-ink-3)" }}>/ 100</span>
+                  <ScoreNumber score={report.data.overall_score} size="lg" />
+                  <span style={{ fontSize: "var(--text-xs)", color: "var(--color-ink-3)", fontVariantNumeric: "tabular-nums" }}>/ 100</span>
                 </div>
               )}
             </div>
@@ -422,7 +381,7 @@ export default function DraftDetail() {
                       }}
                     >
                       <span style={{ fontSize: "var(--text-sm)", color: "var(--color-ink-2)" }}>{d.label}</span>
-                      <ScoreRing score={block?.score} />
+                      <ScoreNumber score={block?.score} size="md" />
                     </div>
                     {block?.score !== undefined && (
                       <div

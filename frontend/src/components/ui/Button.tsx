@@ -28,12 +28,12 @@ const variantStyles: Record<Variant, CSSProperties> = {
   },
   danger: {
     backgroundColor: "var(--color-failed-fg)",
-    color: "#ffffff",
+    color: "var(--color-white)",
     border: "1px solid transparent",
   },
   success: {
     backgroundColor: "var(--color-done-fg)",
-    color: "#ffffff",
+    color: "var(--color-white)",
     border: "1px solid transparent",
   },
 };

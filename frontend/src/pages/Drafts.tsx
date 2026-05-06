@@ -191,6 +191,8 @@ export default function Drafts() {
                     style={{
                       fontSize: "var(--text-xs)",
                       color: "var(--color-ink-3)",
+                      fontFamily: "var(--font-mono)",
+                      fontVariantNumeric: "tabular-nums",
                     }}
                   >
                     {formatDate(draft.created_at)}

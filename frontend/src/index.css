@@ -95,6 +95,40 @@ body {
   animation: spin 1s linear infinite;
 }
 
+/* ---- Input base — shared focus / disabled rules for ad-hoc inputs/textareas ---- */
+.input-base {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-ink);
+  background-color: var(--color-surface-2);
+  border: 1px solid var(--color-surface-3);
+  border-radius: var(--radius-md);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color var(--dur-fast), background-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+.input-base:hover:not(:disabled):not(:focus) {
+  border-color: var(--color-surface-4);
+}
+.input-base:focus,
+.input-base:focus-visible {
+  border-color: var(--color-ink);
+  background-color: var(--color-white);
+  box-shadow: var(--ring-focus);
+}
+.input-base:disabled {
+  background-color: var(--color-surface-2);
+  color: var(--color-ink-3);
+  cursor: not-allowed;
+}
+
+/* Tabular numerals helper — apply where digit alignment matters */
+.num-tabular {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
 /* ---- Prose content (DraftDetail preview) ---- */
 .prose-preview {
   font-family: var(--font-sans);

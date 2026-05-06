@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api/client";
-import { Badge, Button, Card, Input, PageSpinner } from "../components/ui";
+import { Badge, Button, Card, EyebrowLabel, Input, PageSpinner } from "../components/ui";
 
 type Provider = {
   id: string;
@@ -403,9 +403,9 @@ function UsageDashboard() {
             borderRadius: "var(--radius-lg)",
           }}
         >
-          <p style={{ fontSize: "var(--text-xs)", fontWeight: "var(--weight-medium)", color: "var(--color-ink-3)", margin: "0 0 var(--space-4) 0", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          <EyebrowLabel style={{ margin: "0 0 var(--space-4) 0" }}>
             每日成本
-          </p>
+          </EyebrowLabel>
           <div style={{ display: "flex", alignItems: "flex-end", gap: "3px", height: "64px" }}>
             {u.daily.map((d) => (
               <div

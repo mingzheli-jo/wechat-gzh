@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
-import { Badge, Button, EmptyState, PageSpinner } from "../components/ui";
+import { Badge, Button, EmptyState, EyebrowLabel, PageSpinner } from "../components/ui";
 
 type LibraryStatus = "pending" | "processing" | "done" | "failed";
 
@@ -131,18 +131,12 @@ export default function Library() {
             top: "calc(var(--nav-height) + var(--space-6))",
           }}
         >
-          <h2
-            style={{
-              fontSize: "var(--text-sm)",
-              fontWeight: "var(--weight-semi)",
-              color: "var(--color-ink)",
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              margin: "0 0 var(--space-4) 0",
-            }}
+          <EyebrowLabel
+            as="h2"
+            style={{ color: "var(--color-ink)", margin: "0 0 var(--space-4) 0" }}
           >
             添加文章
-          </h2>
+          </EyebrowLabel>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
             <div>
