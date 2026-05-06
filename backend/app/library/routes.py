@@ -42,10 +42,15 @@ async def list_all(
     db: AsyncSession = Depends(get_db),
     _: str = Depends(get_current_username),
 ) -> list[LibraryItemOut]:
-    rows = await service.list_items(
+    rows = await service.list_items_with_counts(
         db, status=status_filter, tag=tag, limit=limit, offset=offset
     )
-    return [LibraryItemOut.model_validate(r) for r in rows]
+    return [
+        LibraryItemOut.model_validate(item).model_copy(
+            update={"rewrite_count": count}
+        )
+        for item, count in rows
+    ]
 
 
 @router.get("/{item_id}", response_model=LibraryItemDetail)

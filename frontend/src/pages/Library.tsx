@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import {
@@ -19,9 +19,12 @@ type LibraryItem = {
   status: LibraryStatus;
   tags: string[] | null;
   error_msg: string | null;
+  rewrite_count: number;
 };
 
 type AccountMin = { id: string; name: string };
+
+type GroupKey = "newAdded" | "active" | "ready" | "rewritten" | "failed";
 
 const STATUS_BADGE: Record<LibraryStatus, "pending" | "processing" | "done" | "failed"> = {
   pending: "pending",
@@ -46,6 +49,49 @@ const EMPTY_STATUS_COUNTS: Record<LibraryStatus, number> = {
   failed: 0,
 };
 
+const GROUP_ORDER: GroupKey[] = ["newAdded", "active", "ready", "rewritten", "failed"];
+
+const GROUP_LABEL: Record<GroupKey, string> = {
+  newAdded: "本次新增",
+  active: "进行中",
+  ready: "可改写",
+  rewritten: "已改写",
+  failed: "失败",
+};
+
+const NEW_HIGHLIGHT_MS = 60_000;
+
+function classify(item: LibraryItem, newAddedSet: Set<string>): GroupKey {
+  if (newAddedSet.has(item.id)) return "newAdded";
+  if (item.status === "pending" || item.status === "processing") return "active";
+  if (item.status === "failed") return "failed";
+  return item.rewrite_count > 0 ? "rewritten" : "ready";
+}
+
+function ChevronDown({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 10 10"
+      fill="none"
+      aria-hidden="true"
+      style={{
+        transform: open ? "rotate(0deg)" : "rotate(-90deg)",
+        transition: "transform var(--dur-fast) var(--ease-out)",
+      }}
+    >
+      <path
+        d="M2.5 4l2.5 2.5L7.5 4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export default function Library() {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -53,6 +99,18 @@ export default function Library() {
   const [tags, setTags] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [accountId, setAccountId] = useState<string>("");
+  const [newAdded, setNewAdded] = useState<Set<string>>(new Set());
+  const [collapsed, setCollapsed] = useState<Set<GroupKey>>(new Set(["rewritten"]));
+  const newAddedTimers = useRef<Map<string, number>>(new Map());
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    const timers = newAddedTimers.current;
+    return () => {
+      timers.forEach((id) => window.clearTimeout(id));
+      timers.clear();
+    };
+  }, []);
 
   const { data, isLoading } = useQuery({
     queryKey: ["library"],
@@ -68,15 +126,33 @@ export default function Library() {
   const ingest = useMutation({
     mutationFn: async () => {
       const urls = text.split("\n").map((u) => u.trim()).filter(Boolean);
-      return api.post("/library", {
+      const res = await api.post<LibraryItem[]>("/library", {
         urls,
         tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
       });
+      return res.data;
     },
-    onSuccess: () => {
+    onSuccess: (items) => {
       setText("");
       setTags("");
       qc.invalidateQueries({ queryKey: ["library"] });
+      const ids = items.map((i) => i.id);
+      setNewAdded((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.add(id));
+        return next;
+      });
+      ids.forEach((id) => {
+        const handle = window.setTimeout(() => {
+          setNewAdded((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+          newAddedTimers.current.delete(id);
+        }, NEW_HIGHLIGHT_MS);
+        newAddedTimers.current.set(id, handle);
+      });
     },
   });
 
@@ -106,6 +182,15 @@ export default function Library() {
     });
   }
 
+  function toggleGroup(key: GroupKey) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
   const urlCount = text.split("\n").filter((l) => l.trim()).length;
 
   const statusCounts = useMemo(() => {
@@ -121,6 +206,21 @@ export default function Library() {
     }
     return counts;
   }, [data]);
+
+  const grouped = useMemo(() => {
+    const map: Record<GroupKey, LibraryItem[]> = {
+      newAdded: [],
+      active: [],
+      ready: [],
+      rewritten: [],
+      failed: [],
+    };
+    if (!data) return map;
+    for (const item of data) {
+      map[classify(item, newAdded)].push(item);
+    }
+    return map;
+  }, [data, newAdded]);
 
   return (
     <div className="page-shell" style={{ paddingBottom: "var(--space-24)" }}>
@@ -208,123 +308,207 @@ export default function Library() {
             />
           ) : (
             <div className="ed-table">
-              {data.map((item, i) => {
-                const isSelected = selected.has(item.id);
-                const indexStr = String(i + 1).padStart(2, "0");
+              {GROUP_ORDER.map((groupKey) => {
+                const items = grouped[groupKey];
+                // Hide groups with no items (except "ready" which we always show as primary action area)
+                if (items.length === 0 && groupKey !== "ready") return null;
+                const isCollapsed = collapsed.has(groupKey);
+                const isHighlight = groupKey === "newAdded";
                 return (
-                  <div
-                    key={item.id}
-                    className="ed-row"
-                    style={{
-                      gridTemplateColumns: "32px 1fr auto",
-                      cursor: item.status === "done" ? "pointer" : "default",
-                      animation: `fade-in var(--dur-normal) ${i * 30}ms var(--ease-out) both`,
-                      // Selected state: subtle bg + left accent
-                      backgroundColor: isSelected ? "var(--color-surface-2)" : undefined,
-                      borderLeft: isSelected ? "2px solid var(--color-ink)" : "2px solid transparent",
-                      paddingLeft: "calc(var(--space-2) - 2px)",
-                    }}
-                    onClick={() => item.status === "done" && toggle(item.id)}
-                  >
-                    {/* Index */}
-                    <span
-                      className="ed-row-index"
-                      style={{
-                        color: isSelected ? "var(--color-ink)" : undefined,
-                      }}
-                    >
-                      {indexStr}
-                    </span>
-
-                    {/* Content */}
-                    <div style={{ minWidth: 0 }}>
-                      <p className="ed-row-title" style={{ margin: 0 }}>
-                        {item.original_title ?? "（待抓取）"}
-                      </p>
-                      <p
-                        className="mono"
-                        style={{
-                          margin: "var(--space-1) 0 0 0",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {item.source_url}
-                      </p>
-                      {item.tags && item.tags.length > 0 && (
-                        <div
-                          style={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            gap: "var(--space-1)",
-                            marginTop: "var(--space-2)",
-                          }}
-                        >
-                          {item.tags.map((t) => (
-                            <Badge key={t} variant="outline">{t}</Badge>
-                          ))}
-                        </div>
-                      )}
-                      {item.error_msg && (
-                        <p
-                          style={{
-                            fontSize: "var(--text-xs)",
-                            color: "var(--color-failed-fg)",
-                            margin: "var(--space-1) 0 0 0",
-                          }}
-                        >
-                          {item.error_msg}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Status + retry */}
-                    <div
+                  <div key={groupKey} className="ed-table-group">
+                    {/* Group header (clickable to toggle) */}
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(groupKey)}
+                      className="ed-table-group-header"
                       style={{
                         display: "flex",
-                        flexDirection: "column",
-                        alignItems: "flex-end",
+                        alignItems: "center",
                         gap: "var(--space-2)",
-                        flexShrink: 0,
+                        width: "100%",
+                        background: "none",
+                        border: "none",
+                        padding: "var(--space-3) 0",
+                        cursor: "pointer",
+                        textAlign: "left",
                       }}
                     >
-                      <Badge variant={STATUS_BADGE[item.status]}>
-                        {item.status === "processing" && (
-                          <span
-                            style={{
-                              display: "inline-block",
-                              width: "6px",
-                              height: "6px",
-                              borderRadius: "50%",
-                              backgroundColor: "currentColor",
-                              animation: "pulse 1.2s ease-in-out infinite",
-                              marginRight: "4px",
-                            }}
-                          />
-                        )}
-                        {STATUS_LABEL[item.status]}
-                      </Badge>
-                      {item.status === "failed" && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            retry.mutate(item.id);
-                          }}
+                      <span style={{ color: "var(--color-ink-3)", display: "flex", alignItems: "center" }}>
+                        <ChevronDown open={!isCollapsed} />
+                      </span>
+                      <h2
+                        className="ed-table-group-title"
+                        style={{
+                          margin: 0,
+                          color: isHighlight ? "var(--color-ink)" : undefined,
+                        }}
+                      >
+                        {GROUP_LABEL[groupKey]}
+                      </h2>
+                      <span className="ed-table-group-count">{items.length}</span>
+                      {isHighlight && items.length > 0 && (
+                        <span
+                          aria-hidden="true"
                           style={{
-                            fontSize: "var(--text-xs)",
-                            color: "var(--color-link)",
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                            padding: 0,
-                            textDecoration: "underline",
+                            display: "inline-block",
+                            width: "6px",
+                            height: "6px",
+                            borderRadius: "50%",
+                            backgroundColor: "var(--color-processing-fg)",
+                            animation: "pulse 1.2s ease-in-out infinite",
+                            marginLeft: "var(--space-1)",
+                          }}
+                        />
+                      )}
+                    </button>
+
+                    {/* Rows */}
+                    {!isCollapsed && (
+                      items.length === 0 ? (
+                        <div
+                          style={{
+                            padding: "var(--space-6) var(--space-2)",
+                            fontSize: "var(--text-sm)",
+                            color: "var(--color-ink-4)",
+                            textAlign: "center",
                           }}
                         >
-                          重试
-                        </button>
-                      )}
-                    </div>
+                          暂无
+                        </div>
+                      ) : (
+                        items.map((item, i) => {
+                          const isSelected = selected.has(item.id);
+                          const isClickable = item.status === "done";
+                          const isRewritten = groupKey === "rewritten";
+                          return (
+                            <div
+                              key={item.id}
+                              className="ed-row"
+                              style={{
+                                gridTemplateColumns: "32px 1fr auto",
+                                cursor: isClickable ? "pointer" : "default",
+                                animation: `fade-in var(--dur-normal) ${i * 30}ms var(--ease-out) both`,
+                                backgroundColor: isSelected ? "var(--color-surface-2)" : undefined,
+                                borderLeft: isSelected
+                                  ? "2px solid var(--color-ink)"
+                                  : isHighlight
+                                  ? "2px solid var(--color-processing-fg)"
+                                  : "2px solid transparent",
+                                paddingLeft: "calc(var(--space-2) - 2px)",
+                                opacity: isRewritten ? 0.55 : 1,
+                                transition: "opacity var(--dur-normal), background-color var(--dur-fast)",
+                              }}
+                              onClick={() => isClickable && toggle(item.id)}
+                            >
+                              {/* Index */}
+                              <span
+                                className="ed-row-index"
+                                style={{ color: isSelected ? "var(--color-ink)" : undefined }}
+                              >
+                                {String(i + 1).padStart(2, "0")}
+                              </span>
+
+                              {/* Content */}
+                              <div style={{ minWidth: 0 }}>
+                                <p className="ed-row-title" style={{ margin: 0 }}>
+                                  {item.original_title ?? "（待抓取）"}
+                                </p>
+                                <p
+                                  className="mono"
+                                  style={{
+                                    margin: "var(--space-1) 0 0 0",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {item.source_url}
+                                </p>
+                                {item.tags && item.tags.length > 0 && (
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      flexWrap: "wrap",
+                                      gap: "var(--space-1)",
+                                      marginTop: "var(--space-2)",
+                                    }}
+                                  >
+                                    {item.tags.map((t) => (
+                                      <Badge key={t} variant="outline">{t}</Badge>
+                                    ))}
+                                  </div>
+                                )}
+                                {item.error_msg && (
+                                  <p
+                                    style={{
+                                      fontSize: "var(--text-xs)",
+                                      color: "var(--color-failed-fg)",
+                                      margin: "var(--space-1) 0 0 0",
+                                    }}
+                                  >
+                                    {item.error_msg}
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Status + rewrite count + retry */}
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  alignItems: "flex-end",
+                                  gap: "var(--space-2)",
+                                  flexShrink: 0,
+                                }}
+                              >
+                                <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+                                  {item.rewrite_count > 0 && (
+                                    <Badge variant="outline">
+                                      已改写 ×{item.rewrite_count}
+                                    </Badge>
+                                  )}
+                                  <Badge variant={STATUS_BADGE[item.status]}>
+                                    {item.status === "processing" && (
+                                      <span
+                                        style={{
+                                          display: "inline-block",
+                                          width: "6px",
+                                          height: "6px",
+                                          borderRadius: "50%",
+                                          backgroundColor: "currentColor",
+                                          animation: "pulse 1.2s ease-in-out infinite",
+                                          marginRight: "4px",
+                                        }}
+                                      />
+                                    )}
+                                    {STATUS_LABEL[item.status]}
+                                  </Badge>
+                                </div>
+                                {item.status === "failed" && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      retry.mutate(item.id);
+                                    }}
+                                    style={{
+                                      fontSize: "var(--text-xs)",
+                                      color: "var(--color-link)",
+                                      background: "none",
+                                      border: "none",
+                                      cursor: "pointer",
+                                      padding: 0,
+                                      textDecoration: "underline",
+                                    }}
+                                  >
+                                    重试
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )
+                    )}
                   </div>
                 );
               })}

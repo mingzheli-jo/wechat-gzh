@@ -23,6 +23,7 @@ class LibraryItemOut(BaseModel):
     error_msg: str | None
     crawled_at: datetime | None
     created_at: datetime
+    rewrite_count: int = 0
 
 
 class LibraryItemDetail(LibraryItemOut):
