@@ -54,10 +54,9 @@ const DIMS: { key: DimKey; label: string; description: string }[] = [
 ];
 
 const STATUS_LABEL: Record<string, string> = {
-  pending: "待处理",
-  writing: "改写中",
+  draft: "改写中",
   reviewing: "审核中",
-  done: "完成",
+  reviewed: "待推送",
   failed: "失败",
   published_to_wechat: "已推送",
 };
@@ -218,6 +217,7 @@ export default function DraftDetail() {
   });
 
   const isPublished = detail.data?.status === "published_to_wechat";
+  const canPublish = detail.data?.status === "reviewed";
   const charCount = wordCount(body);
 
   if (!detail.data) return <PageSpinner />;
@@ -436,7 +436,7 @@ export default function DraftDetail() {
                       >
                         <Badge
                           variant={
-                            img.status === "done"
+                            img.status === "uploaded" || img.status === "replaced"
                               ? "done"
                               : img.status === "failed"
                               ? "failed"
@@ -577,7 +577,7 @@ export default function DraftDetail() {
             <EyebrowLabel>状态</EyebrowLabel>
             <Badge
               variant={
-                detail.data.status === "done" || detail.data.status === "published_to_wechat"
+                detail.data.status === "reviewed" || detail.data.status === "published_to_wechat"
                   ? "done"
                   : detail.data.status === "failed"
                   ? "failed"
@@ -618,7 +618,7 @@ export default function DraftDetail() {
         <Button
           variant="primary"
           onClick={() => publish.mutate()}
-          disabled={isPublished}
+          disabled={!canPublish || isPublished}
           loading={publish.isPending}
           style={{ flexShrink: 0 }}
         >
@@ -626,6 +626,8 @@ export default function DraftDetail() {
             ? "已推送至微信"
             : publish.isPending
             ? "推送中…"
+            : !canPublish
+            ? "等待审核完成"
             : "推送到微信草稿箱"}
         </Button>
       </div>

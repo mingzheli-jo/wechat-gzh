@@ -13,27 +13,24 @@ type Draft = {
 };
 
 type DraftStatus =
-  | "pending"
-  | "writing"
+  | "draft"
   | "reviewing"
-  | "done"
+  | "reviewed"
   | "failed"
   | "published_to_wechat";
 
 const STATUS_BADGE: Record<string, "pending" | "processing" | "done" | "failed" | "warn"> = {
-  pending: "pending",
-  writing: "processing",
+  draft: "processing",
   reviewing: "processing",
-  done: "done",
+  reviewed: "done",
   failed: "failed",
   published_to_wechat: "done",
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  pending: "待处理",
-  writing: "改写中",
+  draft: "改写中",
   reviewing: "审核中",
-  done: "完成",
+  reviewed: "待推送",
   failed: "失败",
   published_to_wechat: "已推送",
 };
@@ -44,8 +41,8 @@ const GROUPS: {
   label: string;
   statuses: string[];
 }[] = [
-  { key: "active", label: "进行中", statuses: ["pending", "writing", "reviewing"] },
-  { key: "done", label: "待推送", statuses: ["done"] },
+  { key: "active", label: "进行中", statuses: ["draft", "reviewing"] },
+  { key: "done", label: "待推送", statuses: ["reviewed"] },
   { key: "published", label: "已推送", statuses: ["published_to_wechat"] },
   { key: "failed", label: "失败", statuses: ["failed"] },
 ];
