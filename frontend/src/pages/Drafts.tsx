@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { Badge, EmptyState, EyebrowLabel, PageSpinner } from "../components/ui";
 
@@ -12,12 +13,21 @@ type Draft = {
   created_at: string;
 };
 
-type DraftStatus =
-  | "draft"
-  | "reviewing"
-  | "reviewed"
-  | "failed"
-  | "published_to_wechat";
+type DraftPage = {
+  items: Draft[];
+  total: number;
+};
+
+type GroupKey = "active" | "done" | "published" | "failed";
+
+const PAGE_SIZE = 10;
+
+const GROUPS: { key: GroupKey; label: string; canDelete: boolean }[] = [
+  { key: "active", label: "进行中", canDelete: false },
+  { key: "done", label: "待推送", canDelete: true },
+  { key: "published", label: "已推送", canDelete: true },
+  { key: "failed", label: "失败", canDelete: true },
+];
 
 const STATUS_BADGE: Record<string, "pending" | "processing" | "done" | "failed" | "warn"> = {
   draft: "processing",
@@ -35,18 +45,6 @@ const STATUS_LABEL: Record<string, string> = {
   published_to_wechat: "已推送",
 };
 
-// Group definitions — order matters
-const GROUPS: {
-  key: string;
-  label: string;
-  statuses: string[];
-}[] = [
-  { key: "active", label: "进行中", statuses: ["draft", "reviewing"] },
-  { key: "done", label: "待推送", statuses: ["reviewed"] },
-  { key: "published", label: "已推送", statuses: ["published_to_wechat"] },
-  { key: "failed", label: "失败", statuses: ["failed"] },
-];
-
 function formatDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleString("zh-CN", {
@@ -57,7 +55,6 @@ function formatDate(iso: string): string {
   });
 }
 
-// Chevron arrow icon
 function ChevronRight() {
   return (
     <svg
@@ -79,30 +76,181 @@ function ChevronRight() {
   );
 }
 
+interface PagerProps {
+  page: number;
+  total: number;
+  onChange: (p: number) => void;
+}
+
+function Pager({ page, total, onChange }: PagerProps) {
+  const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (lastPage <= 1) return null;
+  const baseBtn: React.CSSProperties = {
+    background: "none",
+    border: "none",
+    padding: "var(--space-1) var(--space-2)",
+    fontSize: "var(--text-xs)",
+    fontFamily: "var(--font-mono)",
+    color: "var(--color-ink-3)",
+    cursor: "pointer",
+  };
+  const disabledBtn: React.CSSProperties = {
+    color: "var(--color-ink-4)",
+    cursor: "not-allowed",
+  };
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: "var(--space-2)",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        padding: "var(--space-3) var(--space-2)",
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => onChange(page - 1)}
+        disabled={page <= 1}
+        style={page <= 1 ? { ...baseBtn, ...disabledBtn } : baseBtn}
+      >
+        ‹ 上一页
+      </button>
+      <span
+        className="mono"
+        style={{ fontSize: "var(--text-xs)", color: "var(--color-ink-3)" }}
+      >
+        {page} / {lastPage}
+      </span>
+      <button
+        type="button"
+        onClick={() => onChange(page + 1)}
+        disabled={page >= lastPage}
+        style={page >= lastPage ? { ...baseBtn, ...disabledBtn } : baseBtn}
+      >
+        下一页 ›
+      </button>
+    </div>
+  );
+}
+
 export default function Drafts() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["drafts"],
-    queryFn: async () => (await api.get<Draft[]>("/drafts")).data,
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [pages, setPages] = useState<Record<GroupKey, number>>({
+    active: 1,
+    done: 1,
+    published: 1,
+    failed: 1,
+  });
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const deleteConfirmTimer = useRef<number | null>(null);
+
+  function fetchPage(group: GroupKey, page: number): Promise<DraftPage> {
+    return api
+      .get<DraftPage>(
+        `/drafts?group=${group}&page=${page}&page_size=${PAGE_SIZE}`
+      )
+      .then((r) => r.data);
+  }
+
+  const active = useQuery({
+    queryKey: ["drafts", "active", pages.active],
+    queryFn: () => fetchPage("active", pages.active),
     refetchInterval: 5000,
   });
-
-  const totalCount = data?.length ?? 0;
-
-  // Build groups
-  const groups = GROUPS.map((g) => ({
-    ...g,
-    items: (data ?? []).filter((d) => g.statuses.includes(d.status)),
-  })).filter((g) => {
-    // Always show active/done/published; only show failed if there are failures
-    if (g.key === "failed") return g.items.length > 0;
-    return true;
+  const done = useQuery({
+    queryKey: ["drafts", "done", pages.done],
+    queryFn: () => fetchPage("done", pages.done),
+  });
+  const published = useQuery({
+    queryKey: ["drafts", "published", pages.published],
+    queryFn: () => fetchPage("published", pages.published),
+  });
+  const failed = useQuery({
+    queryKey: ["drafts", "failed", pages.failed],
+    queryFn: () => fetchPage("failed", pages.failed),
   });
 
-  // Running start index per group (precomputed so JSX stays pure)
-  const groupStartIndices = groups.reduce<number[]>((acc, _g, i) => {
-    acc.push(i === 0 ? 0 : acc[i - 1] + groups[i - 1].items.length);
-    return acc;
+  const queries: Record<GroupKey, typeof active> = {
+    active,
+    done,
+    published,
+    failed,
+  };
+
+  const deleteDraft = useMutation({
+    mutationFn: async (id: string) => api.delete(`/drafts/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["drafts"] });
+      qc.invalidateQueries({ queryKey: ["library"] });
+      setDeleteConfirmId(null);
+    },
+  });
+
+  // Auto-rewind any group's page if its current page is now beyond last valid
+  useEffect(() => {
+    setPages((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const g of GROUPS) {
+        const total = queries[g.key].data?.total;
+        if (total === undefined) continue;
+        const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
+        if (next[g.key] > lastPage) {
+          next[g.key] = lastPage;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+    // queries object is stable across renders — depend on each total directly
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    active.data?.total,
+    done.data?.total,
+    published.data?.total,
+    failed.data?.total,
+  ]);
+
+  // Cleanup confirm timer on unmount
+  useEffect(() => {
+    return () => {
+      if (deleteConfirmTimer.current !== null) {
+        window.clearTimeout(deleteConfirmTimer.current);
+      }
+    };
   }, []);
+
+  function startDeleteConfirm(id: string) {
+    setDeleteConfirmId(id);
+    if (deleteConfirmTimer.current !== null) {
+      window.clearTimeout(deleteConfirmTimer.current);
+    }
+    deleteConfirmTimer.current = window.setTimeout(() => {
+      setDeleteConfirmId(null);
+      deleteConfirmTimer.current = null;
+    }, 5000);
+  }
+
+  function confirmDelete(id: string) {
+    if (deleteConfirmTimer.current !== null) {
+      window.clearTimeout(deleteConfirmTimer.current);
+      deleteConfirmTimer.current = null;
+    }
+    deleteDraft.mutate(id);
+  }
+
+  function setGroupPage(g: GroupKey, p: number) {
+    setPages((prev) => ({ ...prev, [g]: p }));
+  }
+
+  const allLoading = GROUPS.every((g) => queries[g.key].isLoading);
+  const totalCount = GROUPS.reduce(
+    (sum, g) => sum + (queries[g.key].data?.total ?? 0),
+    0
+  );
+  const noData = !allLoading && totalCount === 0;
 
   return (
     <div className="page-shell">
@@ -113,24 +261,37 @@ export default function Drafts() {
           <p className="text-page-subtitle">AI 改写后的文章草稿，点击进入编辑与推送</p>
         </div>
 
-        {/* Total count stat */}
         {totalCount > 0 && (
           <div style={{ textAlign: "right", flexShrink: 0 }}>
             <span className="text-stat">{totalCount}</span>
-            <EyebrowLabel style={{ display: "block", marginTop: "var(--space-1)", textAlign: "right" }}>
+            <EyebrowLabel
+              style={{
+                display: "block",
+                marginTop: "var(--space-1)",
+                textAlign: "right",
+              }}
+            >
               合计
             </EyebrowLabel>
           </div>
         )}
       </div>
 
-      {isLoading ? (
+      {allLoading ? (
         <PageSpinner />
-      ) : !data || data.length === 0 ? (
+      ) : noData ? (
         <EmptyState
           icon={
             <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-              <rect x="8" y="8" width="24" height="28" rx="3" stroke="currentColor" strokeWidth="1.5" />
+              <rect
+                x="8"
+                y="8"
+                width="24"
+                height="28"
+                rx="3"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              />
               <path
                 d="M14 16h12M14 21h12M14 26h8"
                 stroke="currentColor"
@@ -144,18 +305,21 @@ export default function Drafts() {
         />
       ) : (
         <div className="ed-table">
-          {groups.map((group, groupIdx) => {
-            const groupStartIndex = groupStartIndices[groupIdx];
+          {GROUPS.map((g) => {
+            const q = queries[g.key];
+            const total = q.data?.total ?? 0;
+            const items = q.data?.items ?? [];
+            // Hide empty non-active groups to reduce noise
+            if (total === 0 && g.key !== "active") return null;
+
             return (
-              <div key={group.key} className="ed-table-group">
-                {/* Group header */}
+              <div key={g.key} className="ed-table-group">
                 <div className="ed-table-group-header">
-                  <h2 className="ed-table-group-title">{group.label}</h2>
-                  <span className="ed-table-group-count">{group.items.length}</span>
+                  <h2 className="ed-table-group-title">{g.label}</h2>
+                  <span className="ed-table-group-count">{total}</span>
                 </div>
 
-                {/* Rows */}
-                {group.items.length === 0 ? (
+                {items.length === 0 ? (
                   <div
                     style={{
                       padding: "var(--space-6) var(--space-2)",
@@ -167,63 +331,152 @@ export default function Drafts() {
                     暂无
                   </div>
                 ) : (
-                  group.items.map((draft, localI) => {
-                    const rowIndex = groupStartIndex + localI;
-                    const indexStr = String(rowIndex + 1).padStart(2, "0");
-                    return (
-                      <Link
-                        key={draft.id}
-                        to={`/drafts/${draft.id}`}
-                        className="ed-row"
-                        style={{
-                          gridTemplateColumns: "32px 1fr 90px 90px 16px",
-                          animationDelay: `${localI * 30}ms`,
-                          animation: `fade-in var(--dur-normal) ${localI * 30}ms var(--ease-out) both`,
-                        }}
-                      >
-                        {/* Index */}
-                        <span className="ed-row-index">{indexStr}</span>
+                  <>
+                    {items.map((draft, localI) => {
+                      const indexStr = String(
+                        (pages[g.key] - 1) * PAGE_SIZE + localI + 1
+                      ).padStart(2, "0");
+                      const isConfirming = deleteConfirmId === draft.id;
+                      const isDeleting =
+                        deleteDraft.isPending &&
+                        deleteDraft.variables === draft.id;
 
-                        {/* Title + optional error */}
-                        <div style={{ minWidth: 0 }}>
-                          <p className="ed-row-title" style={{ margin: 0 }}>
-                            {draft.title ?? "（标题生成中…）"}
-                          </p>
-                          {draft.error_msg && (
-                            <p
+                      return (
+                        <div
+                          key={draft.id}
+                          className="ed-row"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => navigate(`/drafts/${draft.id}`)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              navigate(`/drafts/${draft.id}`);
+                            }
+                          }}
+                          style={{
+                            gridTemplateColumns: g.canDelete
+                              ? "32px 1fr 90px 90px 56px 16px"
+                              : "32px 1fr 90px 90px 16px",
+                            cursor: "pointer",
+                            animationDelay: `${localI * 30}ms`,
+                            animation: `fade-in var(--dur-normal) ${
+                              localI * 30
+                            }ms var(--ease-out) both`,
+                          }}
+                        >
+                          {/* Index */}
+                          <span className="ed-row-index">{indexStr}</span>
+
+                          {/* Title + optional error */}
+                          <div style={{ minWidth: 0 }}>
+                            <p className="ed-row-title" style={{ margin: 0 }}>
+                              {draft.title ?? "（标题生成中…）"}
+                            </p>
+                            {draft.error_msg && (
+                              <p
+                                style={{
+                                  margin: "var(--space-1) 0 0 0",
+                                  fontSize: "var(--text-xs)",
+                                  color: "var(--color-failed-fg)",
+                                  lineHeight: "var(--leading-snug)",
+                                }}
+                              >
+                                {draft.error_msg}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Created date */}
+                          <span
+                            className="ed-row-meta"
+                            style={{ textAlign: "right" }}
+                          >
+                            {formatDate(draft.created_at)}
+                          </span>
+
+                          {/* Status badge */}
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "flex-end",
+                            }}
+                          >
+                            <Badge
+                              variant={STATUS_BADGE[draft.status] ?? "default"}
+                            >
+                              {STATUS_LABEL[draft.status] ?? draft.status}
+                            </Badge>
+                          </div>
+
+                          {/* Delete button — only on canDelete groups */}
+                          {g.canDelete && (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
                               style={{
-                                margin: "var(--space-1) 0 0 0",
-                                fontSize: "var(--text-xs)",
-                                color: "var(--color-failed-fg)",
-                                lineHeight: "var(--leading-snug)",
+                                display: "flex",
+                                justifyContent: "flex-end",
                               }}
                             >
-                              {draft.error_msg}
-                            </p>
+                              {isConfirming ? (
+                                <button
+                                  type="button"
+                                  onClick={() => confirmDelete(draft.id)}
+                                  disabled={isDeleting}
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    padding: 0,
+                                    fontSize: "var(--text-xs)",
+                                    color: "var(--color-failed-fg)",
+                                    cursor: isDeleting
+                                      ? "not-allowed"
+                                      : "pointer",
+                                    fontWeight: "var(--weight-semi)",
+                                    textDecoration: "underline",
+                                  }}
+                                >
+                                  确认？
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    startDeleteConfirm(draft.id)
+                                  }
+                                  disabled={isDeleting}
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    padding: 0,
+                                    fontSize: "var(--text-xs)",
+                                    color: "var(--color-failed-fg)",
+                                    cursor: isDeleting
+                                      ? "not-allowed"
+                                      : "pointer",
+                                    textDecoration: "underline",
+                                  }}
+                                >
+                                  删除
+                                </button>
+                              )}
+                            </div>
                           )}
+
+                          {/* Arrow */}
+                          <span className="ed-row-arrow">
+                            <ChevronRight />
+                          </span>
                         </div>
+                      );
+                    })}
 
-                        {/* Created date */}
-                        <span className="ed-row-meta" style={{ textAlign: "right" }}>
-                          {formatDate(draft.created_at)}
-                        </span>
-
-                        {/* Status badge */}
-                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                          <Badge
-                            variant={STATUS_BADGE[draft.status as DraftStatus] ?? "default"}
-                          >
-                            {STATUS_LABEL[draft.status] ?? draft.status}
-                          </Badge>
-                        </div>
-
-                        {/* Arrow */}
-                        <span className="ed-row-arrow">
-                          <ChevronRight />
-                        </span>
-                      </Link>
-                    );
-                  })
+                    <Pager
+                      page={pages[g.key]}
+                      total={total}
+                      onChange={(p) => setGroupPage(g.key, p)}
+                    />
+                  </>
                 )}
               </div>
             );
