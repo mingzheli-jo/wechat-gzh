@@ -460,13 +460,17 @@ export default function Accounts() {
         </div>
       )}
 
-      {/* Create / Edit modal */}
-      <AccountFormModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        initial={editTarget}
-        onSaved={onSaved}
-      />
+      {/* Create / Edit modal — conditionally mounted so initial state
+          re-runs each open (otherwise useState's lazy initializer keeps
+          stale form state across edit targets) */}
+      {modalOpen && (
+        <AccountFormModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          initial={editTarget}
+          onSaved={onSaved}
+        />
+      )}
 
       {/* Delete confirmation */}
       <ConfirmModal
