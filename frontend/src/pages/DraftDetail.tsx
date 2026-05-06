@@ -2,7 +2,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "../api/client";
-import { Badge, Button, Card, EyebrowLabel, PageSpinner, ScoreNumber } from "../components/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  EyebrowLabel,
+  HairlineMeter,
+  HairlineRule,
+  PageSpinner,
+  ScoreDial,
+  ScoreNumber,
+} from "../components/ui";
 
 type Detail = {
   id: string;
@@ -35,12 +45,103 @@ type Img = {
   error_msg: string | null;
 };
 
-const DIMS: { key: keyof Report; label: string; description: string }[] = [
+type DimKey = "compliance" | "originality" | "quality" | "clickbait";
+
+const DIMS: { key: DimKey; label: string; description: string }[] = [
   { key: "compliance", label: "合规", description: "内容合规性" },
   { key: "originality", label: "原创度", description: "文章独创性" },
   { key: "quality", label: "质量", description: "内容质量" },
   { key: "clickbait", label: "标题党", description: "标题诱导程度" },
 ];
+
+interface IssueQuotesProps {
+  issues: string[];
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+function IssueQuotes({ issues, expanded, onToggle }: IssueQuotesProps) {
+  const initialLimit = 2;
+  const showAll = expanded || issues.length <= initialLimit;
+  const visible = showAll ? issues : issues.slice(0, initialLimit);
+  const remaining = issues.length - initialLimit;
+  return (
+    <div
+      style={{
+        marginTop: "var(--space-2)",
+        display: "flex",
+        flexDirection: "column",
+        gap: "var(--space-1)",
+      }}
+    >
+      {visible.map((it, i) => (
+        <p
+          key={i}
+          style={{
+            margin: 0,
+            fontSize: "var(--text-xs)",
+            fontStyle: "italic",
+            color: "var(--color-ink-2)",
+            lineHeight: "var(--leading-snug)",
+            paddingLeft: "0.9em",
+            textIndent: "-0.9em",
+          }}
+        >
+          <span
+            style={{
+              color: "var(--color-ink-3)",
+              marginRight: "0.3em",
+              fontStyle: "normal",
+            }}
+          >
+            —
+          </span>
+          {it}
+        </p>
+      ))}
+      {remaining > 0 && !expanded && (
+        <button
+          onClick={onToggle}
+          style={{
+            alignSelf: "flex-start",
+            background: "none",
+            border: "none",
+            padding: 0,
+            marginTop: "var(--space-1)",
+            fontSize: "var(--text-xs)",
+            color: "var(--color-ink-3)",
+            cursor: "pointer",
+            textDecoration: "underline",
+            textDecorationStyle: "dotted",
+            textUnderlineOffset: "2px",
+          }}
+        >
+          +{remaining} more
+        </button>
+      )}
+      {expanded && issues.length > initialLimit && (
+        <button
+          onClick={onToggle}
+          style={{
+            alignSelf: "flex-start",
+            background: "none",
+            border: "none",
+            padding: 0,
+            marginTop: "var(--space-1)",
+            fontSize: "var(--text-xs)",
+            color: "var(--color-ink-3)",
+            cursor: "pointer",
+            textDecoration: "underline",
+            textDecorationStyle: "dotted",
+            textUnderlineOffset: "2px",
+          }}
+        >
+          collapse
+        </button>
+      )}
+    </div>
+  );
+}
 
 export default function DraftDetail() {
   const { id } = useParams<{ id: string }>();
@@ -81,6 +182,16 @@ export default function DraftDetail() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit");
+  const [expandedDims, setExpandedDims] = useState<Set<DimKey>>(new Set());
+
+  function toggleDim(key: DimKey) {
+    setExpandedDims((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (detail.data) {
@@ -354,87 +465,66 @@ export default function DraftDetail() {
           )}
         </Card>
 
-        {/* Review report */}
+        {/* Review report — editorial scoresheet (no Card chrome, hairline-driven) */}
         {report.data && (
-          <Card padding="md">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-4)" }}>
-              <EyebrowLabel>审核报告</EyebrowLabel>
-              {report.data.overall_score !== null && (
-                <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)" }}>
-                  <ScoreNumber score={report.data.overall_score} size="lg" />
-                  <span style={{ fontSize: "var(--text-xs)", color: "var(--color-ink-3)", fontVariantNumeric: "tabular-nums" }}>/ 100</span>
-                </div>
-              )}
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+            {/* Hero score block */}
+            <div>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <ScoreDial
+                  score={report.data.overall_score ?? undefined}
+                  size={96}
+                />
+              </div>
+              <p
+                style={{
+                  margin: "var(--space-2) 0 0 0",
+                  textAlign: "right",
+                  fontSize: "var(--text-xs)",
+                  color: "var(--color-ink-3)",
+                  fontFamily: "var(--font-mono)",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                4 dimensions reviewed
+              </p>
+              <HairlineRule style={{ marginTop: "var(--space-3)" }} />
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+            {/* 4 dimensions */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
               {DIMS.map((d) => {
                 const block = report.data![d.key] as DimBlock | null;
+                const expanded = expandedDims.has(d.key);
                 return (
                   <div key={d.key}>
                     <div
                       style={{
                         display: "flex",
-                        alignItems: "center",
+                        alignItems: "baseline",
                         justifyContent: "space-between",
-                        marginBottom: "var(--space-1)",
+                        gap: "var(--space-3)",
                       }}
                     >
-                      <span style={{ fontSize: "var(--text-sm)", color: "var(--color-ink-2)" }}>{d.label}</span>
+                      <EyebrowLabel>{d.label}</EyebrowLabel>
                       <ScoreNumber score={block?.score} size="md" />
                     </div>
-                    {block?.score !== undefined && (
-                      <div
-                        style={{
-                          height: "3px",
-                          backgroundColor: "var(--color-surface-3)",
-                          borderRadius: "var(--radius-full)",
-                          overflow: "hidden",
-                        }}
-                      >
-                        <div
-                          style={{
-                            height: "100%",
-                            width: `${block.score}%`,
-                            backgroundColor:
-                              block.score >= 80
-                                ? "var(--color-done-fg)"
-                                : block.score >= 60
-                                ? "var(--color-warn-fg)"
-                                : "var(--color-failed-fg)",
-                            borderRadius: "var(--radius-full)",
-                            transition: "width 0.6s var(--ease-out)",
-                          }}
-                        />
-                      </div>
-                    )}
+                    <HairlineMeter
+                      score={block?.score}
+                      style={{ marginTop: "var(--space-2)" }}
+                    />
                     {block?.issues && block.issues.length > 0 && (
-                      <ul
-                        style={{
-                          margin: "var(--space-1) 0 0 0",
-                          padding: "0 0 0 var(--space-4)",
-                          listStyle: "disc",
-                        }}
-                      >
-                        {block.issues.map((it, i) => (
-                          <li
-                            key={i}
-                            style={{
-                              fontSize: "var(--text-xs)",
-                              color: "var(--color-ink-3)",
-                              lineHeight: "var(--leading-snug)",
-                            }}
-                          >
-                            {it}
-                          </li>
-                        ))}
-                      </ul>
+                      <IssueQuotes
+                        issues={block.issues}
+                        expanded={expanded}
+                        onToggle={() => toggleDim(d.key)}
+                      />
                     )}
                   </div>
                 );
               })}
             </div>
-          </Card>
+          </div>
         )}
 
         {/* Status badge */}

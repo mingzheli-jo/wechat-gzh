@@ -9,3 +9,4 @@ export { EyebrowLabel } from "./EyebrowLabel";
 export { HairlineRule } from "./HairlineRule";
 export { HairlineMeter } from "./HairlineMeter";
 export { ScoreNumber } from "./ScoreNumber";
+export { ScoreDial } from "./ScoreDial";
