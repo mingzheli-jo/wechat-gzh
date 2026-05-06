@@ -1,7 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { api } from "../api/client";
-import { Badge, Button, Card, EyebrowLabel, Input, PageSpinner } from "../components/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  EyebrowLabel,
+  HairlineRule,
+  Input,
+  PageSpinner,
+} from "../components/ui";
 
 type Provider = {
   id: string;
@@ -309,6 +317,7 @@ type DailyUsage = {
   prompt_tokens: number;
   completion_tokens: number;
   cost_estimate: number;
+  by_role?: Record<string, number>;
 };
 
 type RoleUsage = {
@@ -330,19 +339,140 @@ type UsageSummary = {
   total_cost: number;
 };
 
+// Stacking order for the chart (bottom-to-top). Also drives legend order.
+const ROLE_STACK_ORDER = ["writer", "reviewer", "lite", "unknown"] as const;
+
+const ROLE_COLORS: Record<string, string> = {
+  writer: "var(--color-ink)",
+  reviewer: "var(--color-ink-3)",
+  lite: "var(--color-ink-4)",
+  unknown: "var(--color-surface-4)",
+};
+
+const ROLE_DASH_LABELS: Record<string, string> = {
+  writer: "改写",
+  reviewer: "审核",
+  lite: "轻量",
+  unknown: "未知",
+};
+
+function formatCost(c: number): string {
+  if (c >= 10) return `$${c.toFixed(2)}`;
+  return `$${c.toFixed(4)}`;
+}
+
+function formatDelta(ratio: number | null): { text: string; color: string } {
+  if (ratio === null) {
+    return { text: "无对比基线", color: "var(--color-ink-3)" };
+  }
+  const pct = ratio * 100;
+  const sign = pct >= 0 ? "+" : "";
+  const text = `${sign}${pct.toFixed(1)}%`;
+  const color =
+    pct > 0
+      ? "var(--color-failed-fg)"
+      : pct < 0
+      ? "var(--color-done-fg)"
+      : "var(--color-ink-3)";
+  return { text, color };
+}
+
+// MM-DD slice for compact x-axis labels
+function shortDay(iso: string): string {
+  return iso.length >= 10 ? iso.slice(5) : iso;
+}
+
+interface ChartHover {
+  day: string;
+  total: number;
+  byRole: Record<string, number>;
+  index: number;
+  totalDays: number;
+}
+
 function UsageDashboard() {
   const usage = useQuery({
-    queryKey: ["usage-summary"],
+    queryKey: ["usage-summary", 60],
     queryFn: async () =>
-      (await api.get<UsageSummary>("/usage/summary?days=30")).data,
+      (await api.get<UsageSummary>("/usage/summary?days=60")).data,
   });
 
-  if (!usage.data) return null;
+  const [hover, setHover] = useState<ChartHover | null>(null);
+
+  // Build a 30-day window ending today so empty days appear as ground line.
+  const days30 = useMemo<string[]>(() => {
+    const arr: string[] = [];
+    const now = new Date();
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      arr.push(d.toISOString().slice(0, 10));
+    }
+    return arr;
+  }, []);
+
+  const stats = useMemo(() => {
+    if (!usage.data) {
+      return null;
+    }
+    const dailyMap = new Map(usage.data.daily.map((d) => [d.day, d]));
+    const cutoff = days30[0];
+    let recentCost = 0;
+    let priorCost = 0;
+    let recentPrompt = 0;
+    let recentCompletion = 0;
+    for (const d of usage.data.daily) {
+      if (d.day >= cutoff) {
+        recentCost += d.cost_estimate;
+        recentPrompt += d.prompt_tokens;
+        recentCompletion += d.completion_tokens;
+      } else {
+        priorCost += d.cost_estimate;
+      }
+    }
+    const delta =
+      priorCost === 0 ? null : (recentCost - priorCost) / priorCost;
+
+    // Role keys present in the visible window (preserve stack order; append
+    // any unexpected roles at the end so they still render).
+    const seenRoles = new Set<string>();
+    for (const day of days30) {
+      const entry = dailyMap.get(day);
+      if (!entry?.by_role) continue;
+      for (const role of Object.keys(entry.by_role)) {
+        seenRoles.add(role);
+      }
+    }
+    const orderedRoles = [
+      ...ROLE_STACK_ORDER.filter((r) => seenRoles.has(r)),
+      ...[...seenRoles].filter(
+        (r) => !ROLE_STACK_ORDER.includes(r as (typeof ROLE_STACK_ORDER)[number]),
+      ),
+    ];
+
+    const maxCost = days30.reduce((m, day) => {
+      const entry = dailyMap.get(day);
+      return entry ? Math.max(m, entry.cost_estimate) : m;
+    }, 0);
+
+    return {
+      dailyMap,
+      recentCost,
+      priorCost,
+      recentPrompt,
+      recentCompletion,
+      delta,
+      orderedRoles,
+      maxCost,
+    };
+  }, [usage.data, days30]);
+
+  if (!usage.data || !stats) return null;
   const u = usage.data;
-  const maxDay = u.daily.reduce((m, d) => Math.max(m, d.cost_estimate), 0) || 1;
+  const delta = formatDelta(stats.delta);
 
   return (
-    <section style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+    <section style={{ display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
       <h2
         style={{
           fontSize: "var(--text-lg)",
@@ -355,88 +485,348 @@ function UsageDashboard() {
         AI 用量
       </h2>
 
-      {/* Summary cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-3)" }}>
-        {[
-          { label: "总成本（估算）", value: `$${u.total_cost.toFixed(4)}` },
-          { label: "Prompt tokens", value: u.total_prompt_tokens.toLocaleString() },
-          { label: "Completion tokens", value: u.total_completion_tokens.toLocaleString() },
-        ].map(({ label, value }) => (
-          <div
-            key={label}
-            style={{
-              padding: "var(--space-4) var(--space-5)",
-              backgroundColor: "var(--color-white)",
-              border: "1px solid var(--color-surface-3)",
-              borderRadius: "var(--radius-lg)",
-            }}
-          >
-            <p style={{ fontSize: "var(--text-xs)", color: "var(--color-ink-3)", margin: "0 0 var(--space-1) 0" }}>
-              {label}
-            </p>
+      {/* Hero number block — replaces the 3 equal summary cards */}
+      <div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "3fr 2fr",
+            gap: "var(--space-6)",
+            alignItems: "end",
+          }}
+        >
+          <div>
+            <EyebrowLabel>近 30 天总成本（估算）</EyebrowLabel>
             <p
               style={{
-                fontSize: "var(--text-2xl)",
+                margin: "var(--space-2) 0 0 0",
+                fontSize: "calc(var(--text-3xl) * 1.6)",
                 fontWeight: "var(--weight-semi)",
                 color: "var(--color-ink)",
-                letterSpacing: "-0.02em",
-                margin: 0,
+                letterSpacing: "-0.04em",
+                lineHeight: 1,
+                fontFamily: "var(--font-mono)",
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              {value}
+              {formatCost(stats.recentCost)}
             </p>
-            <p style={{ fontSize: "var(--text-xs)", color: "var(--color-ink-4)", margin: "var(--space-1) 0 0 0" }}>
-              近 30 天
+            <p
+              style={{
+                margin: "var(--space-2) 0 0 0",
+                fontSize: "var(--text-xs)",
+                fontFamily: "var(--font-mono)",
+                color: "var(--color-ink-3)",
+                letterSpacing: "0.02em",
+              }}
+            >
+              vs 上 30 天{" "}
+              <span style={{ color: delta.color, fontWeight: "var(--weight-medium)" }}>
+                {delta.text}
+              </span>
             </p>
           </div>
-        ))}
-      </div>
 
-      {/* Bar chart */}
-      {u.daily.length > 0 && (
-        <div
-          style={{
-            padding: "var(--space-5)",
-            backgroundColor: "var(--color-white)",
-            border: "1px solid var(--color-surface-3)",
-            borderRadius: "var(--radius-lg)",
-          }}
-        >
-          <EyebrowLabel style={{ margin: "0 0 var(--space-4) 0" }}>
-            每日成本
-          </EyebrowLabel>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: "3px", height: "64px" }}>
-            {u.daily.map((d) => (
-              <div
-                key={d.day}
-                title={`${d.day}: $${d.cost_estimate.toFixed(4)}`}
-                style={{
-                  flex: 1,
-                  height: `${Math.max(2, (d.cost_estimate / maxDay) * 100)}%`,
-                  backgroundColor: "var(--color-ink)",
-                  borderRadius: "2px 2px 0 0",
-                  opacity: d.cost_estimate > 0 ? 1 : 0.15,
-                  transition: "opacity var(--dur-fast)",
-                  cursor: "default",
-                }}
-              />
-            ))}
-          </div>
           <div
             style={{
               display: "flex",
-              justifyContent: "space-between",
-              marginTop: "var(--space-2)",
+              flexDirection: "column",
+              gap: "var(--space-3)",
             }}
           >
-            <span style={{ fontSize: "var(--text-xs)", color: "var(--color-ink-4)" }}>{u.daily[0]?.day}</span>
-            <span style={{ fontSize: "var(--text-xs)", color: "var(--color-ink-4)" }}>
-              {u.daily[u.daily.length - 1]?.day}
-            </span>
+            {[
+              { label: "Prompt tokens", value: stats.recentPrompt },
+              { label: "Completion tokens", value: stats.recentCompletion },
+            ].map(({ label, value }) => (
+              <div key={label}>
+                <EyebrowLabel tone="subtle">{label}</EyebrowLabel>
+                <p
+                  style={{
+                    margin: "var(--space-1) 0 0 0",
+                    fontSize: "var(--text-xl)",
+                    fontWeight: "var(--weight-semi)",
+                    color: "var(--color-ink)",
+                    letterSpacing: "-0.02em",
+                    lineHeight: 1,
+                    fontFamily: "var(--font-mono)",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {value.toLocaleString()}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
-      )}
+        <HairlineRule style={{ marginTop: "var(--space-5)" }} />
+      </div>
+
+      {/* Stacked bar chart */}
+      <div style={{ position: "relative" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+            marginBottom: "var(--space-3)",
+          }}
+        >
+          <EyebrowLabel>每日成本 · 按角色</EyebrowLabel>
+          <div style={{ display: "flex", gap: "var(--space-3)" }}>
+            {stats.orderedRoles.map((role) => (
+              <div
+                key={role}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "var(--space-1)",
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: "8px",
+                    height: "8px",
+                    backgroundColor:
+                      ROLE_COLORS[role] ?? "var(--color-surface-4)",
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: "var(--text-xs)",
+                    color: "var(--color-ink-3)",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  {ROLE_DASH_LABELS[role] ?? role}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div
+          style={{
+            position: "relative",
+            display: "flex",
+            alignItems: "flex-end",
+            gap: "2px",
+            height: "112px",
+          }}
+          onMouseLeave={() => setHover(null)}
+        >
+          {days30.map((day, index) => {
+            const entry = stats.dailyMap.get(day);
+            const total = entry?.cost_estimate ?? 0;
+            const byRole = entry?.by_role ?? {};
+            const heightPct =
+              stats.maxCost > 0 ? (total / stats.maxCost) * 100 : 0;
+            const isHover = hover?.day === day;
+
+            return (
+              <div
+                key={day}
+                onMouseEnter={() =>
+                  setHover({
+                    day,
+                    total,
+                    byRole,
+                    index,
+                    totalDays: days30.length,
+                  })
+                }
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  height: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "flex-end",
+                  cursor: total > 0 ? "default" : "default",
+                  position: "relative",
+                }}
+              >
+                {total > 0 ? (
+                  <div
+                    style={{
+                      height: `${Math.max(2, heightPct)}%`,
+                      display: "flex",
+                      flexDirection: "column-reverse",
+                      opacity: isHover || !hover ? 1 : 0.45,
+                      transition: "opacity var(--dur-fast)",
+                    }}
+                  >
+                    {stats.orderedRoles.map((role) => {
+                      const cost = byRole[role] ?? 0;
+                      if (cost <= 0) return null;
+                      const segPct = (cost / total) * 100;
+                      return (
+                        <div
+                          key={role}
+                          style={{
+                            height: `${segPct}%`,
+                            backgroundColor:
+                              ROLE_COLORS[role] ?? "var(--color-surface-4)",
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      height: "1px",
+                      backgroundColor: "var(--color-surface-3)",
+                      opacity: !hover || isHover ? 1 : 0.45,
+                      transition: "opacity var(--dur-fast)",
+                    }}
+                  />
+                )}
+              </div>
+            );
+          })}
+
+          {/* Hover popover */}
+          {hover && (
+            <div
+              role="tooltip"
+              style={{
+                position: "absolute",
+                bottom: "calc(100% + 8px)",
+                left: `${(hover.index / Math.max(1, hover.totalDays - 1)) * 100}%`,
+                transform: `translateX(${
+                  hover.index < 4
+                    ? "0%"
+                    : hover.index > hover.totalDays - 5
+                    ? "-100%"
+                    : "-50%"
+                })`,
+                backgroundColor: "var(--color-ink)",
+                color: "var(--color-accent-fg)",
+                padding: "var(--space-3) var(--space-4)",
+                borderRadius: "var(--radius-md)",
+                fontSize: "var(--text-xs)",
+                fontFamily: "var(--font-mono)",
+                fontVariantNumeric: "tabular-nums",
+                whiteSpace: "nowrap",
+                boxShadow: "var(--shadow-lg)",
+                zIndex: 5,
+                pointerEvents: "none",
+                lineHeight: "var(--leading-snug)",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: "var(--weight-medium)",
+                  marginBottom: "var(--space-1)",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                {hover.day}
+              </div>
+              {stats.orderedRoles.map((role) => {
+                const c = hover.byRole[role] ?? 0;
+                if (c <= 0) return null;
+                return (
+                  <div
+                    key={role}
+                    style={{
+                      display: "flex",
+                      gap: "var(--space-3)",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <span style={{ display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          width: "6px",
+                          height: "6px",
+                          backgroundColor:
+                            ROLE_COLORS[role] ?? "var(--color-surface-4)",
+                        }}
+                      />
+                      <span style={{ opacity: 0.7 }}>
+                        {ROLE_DASH_LABELS[role] ?? role}
+                      </span>
+                    </span>
+                    <span>{formatCost(c)}</span>
+                  </div>
+                );
+              })}
+              {hover.total === 0 && (
+                <div style={{ opacity: 0.6 }}>无调用</div>
+              )}
+              {hover.total > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginTop: "var(--space-1)",
+                    paddingTop: "var(--space-1)",
+                    borderTop: "1px solid rgba(255,255,255,0.15)",
+                  }}
+                >
+                  <span style={{ opacity: 0.7 }}>total</span>
+                  <span style={{ fontWeight: "var(--weight-medium)" }}>
+                    {formatCost(hover.total)}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* X-axis weekly ticks */}
+        <div
+          style={{
+            display: "flex",
+            gap: "2px",
+            marginTop: "var(--space-2)",
+          }}
+        >
+          {days30.map((day, i) => (
+            <div
+              key={day}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                textAlign: "center",
+                fontSize: "var(--text-xs)",
+                fontFamily: "var(--font-mono)",
+                color: "var(--color-ink-4)",
+                opacity: i % 7 === 0 || i === days30.length - 1 ? 1 : 0,
+              }}
+            >
+              {shortDay(day)}
+            </div>
+          ))}
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "baseline",
+            marginTop: "var(--space-3)",
+            color: "var(--color-ink-3)",
+            fontSize: "var(--text-xs)",
+            fontFamily: "var(--font-mono)",
+          }}
+        >
+          <span>{days30[0]} → {days30[days30.length - 1]}</span>
+          <span
+            style={{
+              color: "var(--color-ink)",
+              letterSpacing: "0.02em",
+              fontWeight: "var(--weight-medium)",
+            }}
+          >
+            total · {formatCost(stats.recentCost)}
+          </span>
+        </div>
+      </div>
 
       {/* By-role table */}
       {u.by_role.length > 0 && (
@@ -471,28 +861,96 @@ function UsageDashboard() {
               </tr>
             </thead>
             <tbody>
-              {u.by_role.map((r, i) => (
-                <tr
-                  key={i}
-                  style={{ borderTop: i > 0 ? "1px solid var(--color-surface-2)" : "none" }}
-                >
-                  <td style={{ padding: "var(--space-3) var(--space-4)" }}>
-                    <Badge variant="default">{r.role ?? "—"}</Badge>
-                  </td>
-                  <td style={{ padding: "var(--space-3) var(--space-4)", fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: "var(--color-ink-2)" }}>
-                    {r.provider ?? "—"} / {r.model}
-                  </td>
-                  <td style={{ padding: "var(--space-3) var(--space-4)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                    {r.calls}
-                  </td>
-                  <td style={{ padding: "var(--space-3) var(--space-4)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                    {(r.prompt_tokens + r.completion_tokens).toLocaleString()}
-                  </td>
-                  <td style={{ padding: "var(--space-3) var(--space-4)", textAlign: "right", fontVariantNumeric: "tabular-nums", fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)" }}>
-                    ${r.cost_estimate.toFixed(4)}
-                  </td>
-                </tr>
-              ))}
+              {u.by_role.map((r, i) => {
+                const roleKey = r.role ?? "unknown";
+                const swatchColor =
+                  ROLE_COLORS[roleKey] ?? "var(--color-surface-4)";
+                const dashLabel = ROLE_DASH_LABELS[roleKey] ?? roleKey;
+                return (
+                  <tr
+                    key={i}
+                    style={{
+                      borderTop: i > 0 ? "1px solid var(--color-surface-2)" : "none",
+                      transition: "background-color var(--dur-fast)",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor =
+                        "var(--color-surface-2)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "";
+                    }}
+                  >
+                    <td style={{ padding: "var(--space-3) var(--space-4)" }}>
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "var(--space-2)",
+                        }}
+                      >
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            width: "8px",
+                            height: "8px",
+                            backgroundColor: swatchColor,
+                            flexShrink: 0,
+                          }}
+                        />
+                        <EyebrowLabel as="span">{dashLabel}</EyebrowLabel>
+                      </span>
+                    </td>
+                    <td
+                      style={{
+                        padding: "var(--space-3) var(--space-4)",
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "var(--text-xs)",
+                        color: "var(--color-ink-2)",
+                      }}
+                    >
+                      {r.provider ?? "—"} / {r.model}
+                    </td>
+                    <td
+                      style={{
+                        padding: "var(--space-3) var(--space-4)",
+                        textAlign: "right",
+                        fontFamily: "var(--font-mono)",
+                        fontVariantNumeric: "tabular-nums",
+                        fontSize: "var(--text-xs)",
+                        color: "var(--color-ink-2)",
+                      }}
+                    >
+                      {r.calls}
+                    </td>
+                    <td
+                      style={{
+                        padding: "var(--space-3) var(--space-4)",
+                        textAlign: "right",
+                        fontFamily: "var(--font-mono)",
+                        fontVariantNumeric: "tabular-nums",
+                        fontSize: "var(--text-xs)",
+                        color: "var(--color-ink-2)",
+                      }}
+                    >
+                      {(r.prompt_tokens + r.completion_tokens).toLocaleString()}
+                    </td>
+                    <td
+                      style={{
+                        padding: "var(--space-3) var(--space-4)",
+                        textAlign: "right",
+                        fontFamily: "var(--font-mono)",
+                        fontVariantNumeric: "tabular-nums",
+                        fontSize: "var(--text-xs)",
+                        color: "var(--color-ink)",
+                        fontWeight: "var(--weight-medium)",
+                      }}
+                    >
+                      {formatCost(r.cost_estimate)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

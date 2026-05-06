@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,12 +12,16 @@ from app.auth.dependencies import get_current_username
 
 router = APIRouter(prefix="/usage", tags=["usage"])
 
+# Bucket key used in DailyUsage.by_role when AIUsage.role is NULL.
+_UNKNOWN_ROLE = "unknown"
+
 
 class DailyUsage(BaseModel):
     day: str
     prompt_tokens: int
     completion_tokens: int
     cost_estimate: float
+    by_role: dict[str, float] = Field(default_factory=dict)
 
 
 class RoleUsage(BaseModel):
@@ -59,12 +63,31 @@ async def summary(
         .order_by("day")
     )
     daily_rows = (await db.execute(daily_stmt)).all()
+
+    # Per (day, role) breakdown for stacked-bar charting on the frontend.
+    daily_role_stmt = (
+        select(
+            func.date_trunc("day", AIUsage.created_at).label("day"),
+            AIUsage.role,
+            func.sum(AIUsage.cost_estimate).label("cost"),
+        )
+        .where(AIUsage.created_at >= cutoff)
+        .group_by("day", AIUsage.role)
+    )
+    daily_role_rows = (await db.execute(daily_role_stmt)).all()
+    by_day_role: dict[str, dict[str, float]] = {}
+    for row in daily_role_rows:
+        day_key = row.day.date().isoformat()
+        role_key = row.role or _UNKNOWN_ROLE
+        by_day_role.setdefault(day_key, {})[role_key] = float(row.cost or Decimal(0))
+
     daily = [
         DailyUsage(
             day=row.day.date().isoformat(),
             prompt_tokens=int(row.prompt or 0),
             completion_tokens=int(row.completion or 0),
             cost_estimate=float(row.cost or Decimal(0)),
+            by_role=by_day_role.get(row.day.date().isoformat(), {}),
         )
         for row in daily_rows
     ]
