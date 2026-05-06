@@ -46,3 +46,8 @@ class ReviewReportOut(BaseModel):
 class DraftEdit(BaseModel):
     title: str | None = None
     content_html: str | None = None
+
+
+class DraftListPage(BaseModel):
+    items: list[DraftOut]
+    total: int

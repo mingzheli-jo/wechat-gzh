@@ -1,6 +1,7 @@
 import uuid
+from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
@@ -11,12 +12,15 @@ from app.drafts.models import DraftStatus
 from app.drafts.schemas import (
     DraftDetail,
     DraftEdit,
+    DraftListPage,
     DraftOut,
     ReviewReportOut,
     RewriteTriggerRequest,
 )
 
 router = APIRouter(prefix="/drafts", tags=["drafts"])
+
+DraftGroup = Literal["active", "done", "published", "failed"]
 
 
 @router.post("/rewrite", response_model=list[DraftOut], status_code=202)
@@ -44,23 +48,26 @@ async def trigger_rewrite(
     return drafts
 
 
-@router.get("", response_model=list[DraftOut])
+@router.get("", response_model=DraftListPage)
 async def list_all(
+    group: DraftGroup | None = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
     account_id: uuid.UUID | None = None,
-    status_filter: DraftStatus | None = None,
-    limit: int = 50,
-    offset: int = 0,
     db: AsyncSession = Depends(get_db),
     _: str = Depends(get_current_username),
-) -> list[DraftOut]:
-    rows = await service.list_drafts(
+) -> DraftListPage:
+    items, total = await service.list_drafts_paginated(
         db,
+        group=group,
         account_id=account_id,
-        status=status_filter,
-        limit=limit,
-        offset=offset,
+        page=page,
+        page_size=page_size,
     )
-    return [DraftOut.model_validate(r) for r in rows]
+    return DraftListPage(
+        items=[DraftOut.model_validate(r) for r in items],
+        total=total,
+    )
 
 
 @router.get("/{draft_id}", response_model=DraftDetail)
@@ -89,6 +96,20 @@ async def update(
         db, obj, title=payload.title, content_html=payload.content_html
     )
     return DraftDetail.model_validate(obj)
+
+
+@router.delete("/{draft_id}", status_code=204)
+async def delete(
+    draft_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_current_username),
+) -> None:
+    obj = await service.get_draft(db, draft_id)
+    if obj is None:
+        raise HTTPException(404, "Draft not found")
+    if obj.status in (DraftStatus.draft, DraftStatus.reviewing):
+        raise HTTPException(409, "进行中的草稿不能删除")
+    await service.delete_draft_with_cleanup(db, obj)
 
 
 @router.get("/{draft_id}/report", response_model=ReviewReportOut)
