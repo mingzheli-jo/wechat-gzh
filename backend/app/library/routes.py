@@ -83,12 +83,41 @@ async def update_tags(
 @router.delete("/{item_id}", status_code=204)
 async def delete(
     item_id: uuid.UUID,
+    cascade_drafts: bool = False,
     db: AsyncSession = Depends(get_db),
     _: str = Depends(get_current_username),
 ) -> None:
+    from app.drafts import service as draft_service
+    from app.drafts.models import DraftStatus
+
     obj = await service.get(db, item_id)
     if obj is None:
         raise HTTPException(404, "Item not found")
+
+    drafts = await draft_service.list_drafts_for_library_item(db, item_id)
+
+    if drafts:
+        if not cascade_drafts:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": f"该素材有 {len(drafts)} 个草稿",
+                    "draft_count": len(drafts),
+                },
+            )
+        active = [
+            d
+            for d in drafts
+            if d.status in (DraftStatus.draft, DraftStatus.reviewing)
+        ]
+        if active:
+            raise HTTPException(
+                status_code=409,
+                detail=f"{len(active)} 个草稿改写中，请等改写完成后再删",
+            )
+        for d in drafts:
+            await draft_service.delete_draft_with_cleanup(db, d)
+
     await service.delete(db, obj)
 
 

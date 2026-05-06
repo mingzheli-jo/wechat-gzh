@@ -5,6 +5,7 @@ import { api } from "../api/client";
 import {
   Badge,
   Button,
+  ConfirmModal,
   EmptyState,
   EyebrowLabel,
   PageSpinner,
@@ -101,7 +102,21 @@ export default function Library() {
   const [accountId, setAccountId] = useState<string>("");
   const [newAdded, setNewAdded] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState<Set<GroupKey>>(new Set(["rewritten"]));
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const newAddedTimers = useRef<Map<string, number>>(new Map());
+  const deleteErrorTimer = useRef<number | null>(null);
+
+  function flashError(msg: string) {
+    setDeleteError(msg);
+    if (deleteErrorTimer.current !== null) {
+      window.clearTimeout(deleteErrorTimer.current);
+    }
+    deleteErrorTimer.current = window.setTimeout(() => {
+      setDeleteError(null);
+      deleteErrorTimer.current = null;
+    }, 6000);
+  }
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -109,6 +124,9 @@ export default function Library() {
     return () => {
       timers.forEach((id) => window.clearTimeout(id));
       timers.clear();
+      if (deleteErrorTimer.current !== null) {
+        window.clearTimeout(deleteErrorTimer.current);
+      }
     };
   }, []);
 
@@ -170,6 +188,59 @@ export default function Library() {
     onSuccess: () => {
       setSelected(new Set());
       navigate("/drafts");
+    },
+  });
+
+  const deleteSelected = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const results = await Promise.allSettled(
+        ids.map((id) =>
+          api.delete(`/library/${id}?cascade_drafts=true`)
+        )
+      );
+      const failures: { id: string; status?: number; detail?: string }[] = [];
+      results.forEach((r, i) => {
+        if (r.status === "rejected") {
+          const err = r.reason as {
+            response?: { status?: number; data?: { detail?: unknown } };
+          };
+          const detail = err.response?.data?.detail;
+          failures.push({
+            id: ids[i],
+            status: err.response?.status,
+            detail:
+              typeof detail === "string"
+                ? detail
+                : typeof detail === "object" && detail !== null && "message" in detail
+                ? String((detail as { message?: unknown }).message ?? "")
+                : undefined,
+          });
+        }
+      });
+      return { failures, total: ids.length };
+    },
+    onSuccess: ({ failures, total }) => {
+      qc.invalidateQueries({ queryKey: ["library"] });
+      qc.invalidateQueries({ queryKey: ["drafts"] });
+      setDeleteModalOpen(false);
+      if (failures.length === 0) {
+        setSelected(new Set());
+        return;
+      }
+      // Keep failed ids selected so user can see / retry
+      const failedIds = new Set(failures.map((f) => f.id));
+      setSelected(failedIds);
+      const sample = failures[0];
+      const reason = sample.detail
+        ? sample.detail
+        : sample.status === 409
+        ? "其中含改写中的草稿，请等改写完成后再删"
+        : "请稍后重试";
+      flashError(`${failures.length}/${total} 篇删除失败：${reason}`);
+    },
+    onError: () => {
+      setDeleteModalOpen(false);
+      flashError("删除请求失败，请稍后重试");
     },
   });
 
@@ -282,6 +353,43 @@ export default function Library() {
         )}
       </div>
 
+      {deleteError && (
+        <div
+          role="alert"
+          style={{
+            margin: "0 0 var(--space-4) 0",
+            padding: "var(--space-3) var(--space-4)",
+            backgroundColor: "var(--color-failed)",
+            color: "var(--color-failed-fg)",
+            borderRadius: "var(--radius-md)",
+            fontSize: "var(--text-sm)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "var(--space-3)",
+            animation: "fade-in var(--dur-fast) var(--ease-out) both",
+          }}
+        >
+          <span>{deleteError}</span>
+          <button
+            type="button"
+            onClick={() => setDeleteError(null)}
+            aria-label="关闭"
+            style={{
+              background: "none",
+              border: "none",
+              padding: 0,
+              fontSize: "var(--text-xs)",
+              color: "var(--color-failed-fg)",
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
+          >
+            关闭
+          </button>
+        </div>
+      )}
+
       {/* Two-pane layout: list (left) | add panel (right) */}
       <div
         style={{
@@ -378,7 +486,11 @@ export default function Library() {
                       ) : (
                         items.map((item, i) => {
                           const isSelected = selected.has(item.id);
-                          const isClickable = item.status === "done";
+                          // Allow selection on done (for rewrite or delete)
+                          // and failed (for delete only). Pending/processing
+                          // rows aren't selectable.
+                          const isClickable =
+                            item.status === "done" || item.status === "failed";
                           const isRewritten = groupKey === "rewritten";
                           return (
                             <div
@@ -582,78 +694,121 @@ export default function Library() {
       </div>
 
       {/* Bottom action bar */}
-      {selected.size > 0 && (
-        <div className="action-bar">
-          <span style={{ fontSize: "var(--text-sm)", whiteSpace: "nowrap", flexShrink: 0 }}>
-            已选 <strong>{selected.size}</strong> 篇
-          </span>
+      {selected.size > 0 && (() => {
+        const selectedItems = (data ?? []).filter((i) => selected.has(i.id));
+        const canRewrite =
+          selectedItems.length > 0 &&
+          selectedItems.every((i) => i.status === "done");
+        return (
+          <div className="action-bar">
+            <span style={{ fontSize: "var(--text-sm)", whiteSpace: "nowrap", flexShrink: 0 }}>
+              已选 <strong>{selected.size}</strong> 篇
+            </span>
 
-          <select
-            value={accountId}
-            onChange={(e) => setAccountId(e.target.value)}
-            style={{
-              flex: 1,
-              minWidth: "160px",
-              padding: "var(--space-2) var(--space-3)",
-              fontSize: "var(--text-sm)",
-              color: accountId ? "var(--color-white)" : "rgba(255,255,255,0.45)",
-              backgroundColor: "rgba(255,255,255,0.1)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              borderRadius: "var(--radius-md)",
-              outline: "none",
-              cursor: "pointer",
-            }}
-          >
-            <option value="" style={{ color: "var(--color-ink)", backgroundColor: "var(--color-white)" }}>
-              选择目标公众号
-            </option>
-            {accounts.data?.map((a) => (
-              <option
-                key={a.id}
-                value={a.id}
-                style={{ color: "var(--color-ink)", backgroundColor: "var(--color-white)" }}
-              >
-                {a.name}
-              </option>
-            ))}
-          </select>
+            {canRewrite && (
+              <>
+                <select
+                  value={accountId}
+                  onChange={(e) => setAccountId(e.target.value)}
+                  style={{
+                    flex: 1,
+                    minWidth: "160px",
+                    padding: "var(--space-2) var(--space-3)",
+                    fontSize: "var(--text-sm)",
+                    color: accountId ? "var(--color-white)" : "rgba(255,255,255,0.45)",
+                    backgroundColor: "rgba(255,255,255,0.1)",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                    borderRadius: "var(--radius-md)",
+                    outline: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="" style={{ color: "var(--color-ink)", backgroundColor: "var(--color-white)" }}>
+                    选择目标公众号
+                  </option>
+                  {accounts.data?.map((a) => (
+                    <option
+                      key={a.id}
+                      value={a.id}
+                      style={{ color: "var(--color-ink)", backgroundColor: "var(--color-white)" }}
+                    >
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
 
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => triggerRewrite.mutate()}
-            disabled={!accountId}
-            loading={triggerRewrite.isPending}
-            style={{
-              backgroundColor: "var(--color-white)",
-              color: "var(--color-ink)",
-              border: "none",
-              flexShrink: 0,
-            }}
-          >
-            {triggerRewrite.isPending ? "派发中…" : "开始改写"}
-          </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => triggerRewrite.mutate()}
+                  disabled={!accountId}
+                  loading={triggerRewrite.isPending}
+                  style={{
+                    backgroundColor: "var(--color-white)",
+                    color: "var(--color-ink)",
+                    border: "none",
+                    flexShrink: 0,
+                  }}
+                >
+                  {triggerRewrite.isPending ? "派发中…" : "开始改写"}
+                </Button>
+              </>
+            )}
 
-          <button
-            onClick={() => setSelected(new Set())}
-            style={{
-              background: "none",
-              border: "none",
-              color: "rgba(255,255,255,0.5)",
-              cursor: "pointer",
-              padding: "var(--space-1)",
-              flexShrink: 0,
-              display: "flex",
-              alignItems: "center",
-            }}
-            aria-label="清空选择"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M11 3L3 11M3 3l8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-      )}
+            {!canRewrite && (
+              <span style={{ flex: 1 }} />
+            )}
+
+            <button
+              type="button"
+              onClick={() => setDeleteModalOpen(true)}
+              disabled={deleteSelected.isPending}
+              style={{
+                background: "none",
+                border: "none",
+                padding: "var(--space-2) var(--space-3)",
+                fontSize: "var(--text-sm)",
+                color: "var(--color-failed-fg)",
+                cursor: deleteSelected.isPending ? "not-allowed" : "pointer",
+                fontWeight: "var(--weight-medium)",
+                flexShrink: 0,
+                textDecoration: "underline",
+              }}
+            >
+              {deleteSelected.isPending ? "删除中…" : "删除选中"}
+            </button>
+
+            <button
+              onClick={() => setSelected(new Set())}
+              style={{
+                background: "none",
+                border: "none",
+                color: "rgba(255,255,255,0.5)",
+                cursor: "pointer",
+                padding: "var(--space-1)",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+              }}
+              aria-label="清空选择"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M11 3L3 11M3 3l8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+        );
+      })()}
+
+      <ConfirmModal
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={() => deleteSelected.mutate(Array.from(selected))}
+        loading={deleteSelected.isPending}
+        title="删除选中素材"
+        message={`确认删除选中的 ${selected.size} 篇？关联的草稿（如有）会一并删除。改写中的草稿无法删除。`}
+        confirmLabel="确认删除"
+      />
 
       <style>{`
         @keyframes pulse {
