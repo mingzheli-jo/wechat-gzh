@@ -2,7 +2,7 @@ import logging
 import uuid
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import delete as sa_delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.drafts.models import Draft, DraftStatus, ReviewReport
@@ -85,6 +85,21 @@ async def get_draft(db: AsyncSession, draft_id: uuid.UUID) -> Draft | None:
     return await db.get(Draft, draft_id)
 
 
+async def list_drafts_for_library_item(
+    db: AsyncSession, library_item_id: uuid.UUID
+) -> list[Draft]:
+    """All drafts that reference a given library item, regardless of status."""
+    return list(
+        (
+            await db.execute(
+                select(Draft).where(Draft.library_item_id == library_item_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+
 async def get_review_report(
     db: AsyncSession, report_id: uuid.UUID
 ) -> ReviewReport | None:
@@ -110,48 +125,57 @@ async def update_draft(
 async def delete_draft_with_cleanup(db: AsyncSession, draft: Draft) -> None:
     """Delete a draft and all dependent rows + image files on disk.
 
-    Order matters because of foreign keys: drafts.review_report_id <->
-    review_reports.draft_id is a circular FK (drafts uses use_alter=True).
-    Image rows reference drafts via images.draft_id.
+    Uses core-level DELETE statements rather than ORM `session.delete()`
+    to bypass dependency-sort ambiguity caused by the circular FK
+    between drafts and review_reports (drafts.review_report_id is
+    use_alter=True, which made the ORM sometimes attempt to DELETE
+    drafts before review_reports during commit).
+
+    Order:
+      1. UPDATE drafts SET review_report_id = NULL  (breaks the cycle)
+      2. DELETE images WHERE draft_id = X
+      3. DELETE review_reports WHERE draft_id = X
+      4. DELETE drafts WHERE id = X
+      5. commit, then unlink image files (best-effort, post-commit)
 
     Caller is responsible for ensuring the draft is in a deletable state.
     """
-    images = list(
+    draft_id = draft.id
+
+    # Capture image local_paths before deletion (need them for disk cleanup)
+    image_paths = list(
         (
             await db.execute(
-                select(Image).where(Image.draft_id == draft.id)
+                select(Image.local_path).where(Image.draft_id == draft_id)
             )
         )
         .scalars()
         .all()
     )
 
-    review_report_id = draft.review_report_id
-    if review_report_id is not None:
-        draft.review_report_id = None
-        await db.flush()
-
-    reports = list(
-        (
-            await db.execute(
-                select(ReviewReport).where(ReviewReport.draft_id == draft.id)
-            )
+    # Break circular FK so the draft can be deleted last
+    if draft.review_report_id is not None:
+        await db.execute(
+            update(Draft)
+            .where(Draft.id == draft_id)
+            .values(review_report_id=None)
         )
-        .scalars()
-        .all()
+
+    # Explicit DELETEs in reverse-dependency order
+    await db.execute(sa_delete(Image).where(Image.draft_id == draft_id))
+    await db.execute(
+        sa_delete(ReviewReport).where(ReviewReport.draft_id == draft_id)
     )
-    for r in reports:
-        await db.delete(r)
-
-    for img in images:
-        if img.local_path:
-            try:
-                Path(img.local_path).unlink(missing_ok=True)
-            except OSError as exc:
-                logger.warning(
-                    "failed to unlink image file %s: %s", img.local_path, exc
-                )
-        await db.delete(img)
-
-    await db.delete(draft)
+    await db.execute(sa_delete(Draft).where(Draft.id == draft_id))
     await db.commit()
+
+    # Best-effort disk cleanup post-commit
+    for path in image_paths:
+        if not path:
+            continue
+        try:
+            Path(path).unlink(missing_ok=True)
+        except OSError as exc:
+            logger.warning(
+                "failed to unlink image file %s: %s", path, exc
+            )
