@@ -30,3 +30,18 @@ htmlcov/
 /data/
 backend/data/*
 !backend/data/sensitive_words.txt
+
+# OMC working state
+.omc/
+backend/.omc/
+
+# Build artifacts
+backend/wechat_rewriter_backend.egg-info/
+
+# Local backups
+backups/
+
+# Visual verification artifacts (one-shot, not committed)
+frontend/redesign-screenshots/
+frontend/screenshot-all.cjs
+frontend/screenshot-all.mjs

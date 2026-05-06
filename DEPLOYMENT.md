@@ -382,3 +382,118 @@ docker compose down -v
 
 最后更新：2026-05-01
 当前 commit：`bc6b5c7` (60 commits in)
+
+---
+
+## 14. 生产部署（Caddy + HTTPS）
+
+适用：已有一台 Linux 服务器，装了 Docker + Compose，域名 A 记录已指向服务器 IP。
+
+### 14.1 一次性 bootstrap
+
+```bash
+# 在服务器上，假设域名 wechat.azhefuye.online 已解析到这台机
+ssh you@your-server
+git clone git@github.com:你/wechat-batch-rewriter.git /opt/wechat-batch-rewriter
+cd /opt/wechat-batch-rewriter
+
+# 1. 复制并填充 .env
+cp .env.example .env
+# 编辑 .env，设置 POSTGRES_PASSWORD 为强密码、DOMAIN 为你的域名
+
+# 2. 生成加密 key 和 JWT secret
+echo "ENCRYPTION_KEY=$(python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" >> .env
+echo "JWT_SECRET=$(openssl rand -hex 32)" >> .env
+
+# 3. 初始化 admin 密码 hash（临时启 api 服务跑一次性脚本）
+docker compose run --rm api python -m app.scripts.init_admin --password 你的密码
+# 把打印的 ADMIN_PASSWORD_HASH=... 行粘到 .env
+
+# 4. 给脚本加执行权限
+chmod +x deploy.sh backup.sh
+
+# 5. 一键起栈（Caddy 会自动申请 Let's Encrypt 证书）
+./deploy.sh
+```
+
+第一次 Caddy 申请证书大概要 30 秒 — 1 分钟。等 `https://wechat.azhefuye.online` 返回登录页就成功了。
+
+**注意**：在 Windows 上克隆后直接推到服务器时，`deploy.sh` 和 `backup.sh` 的执行权限位不会自动保留。在服务器上 clone 后务必手动 `chmod +x deploy.sh backup.sh`。
+
+### 14.2 后续更新
+
+```bash
+ssh you@your-server
+cd /opt/wechat-batch-rewriter
+./deploy.sh    # = git pull + rebuild + up -d + 健康检查
+```
+
+Alembic 迁移在 api 启动时自动跑（`entrypoint-api.sh`）。无需手动操作。
+
+### 14.3 compose 文件说明
+
+生产栈通过两个 compose 文件叠加启动：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+`docker-compose.prod.yml` 在基础文件之上做以下覆盖：
+- 为所有服务加 `restart: unless-stopped`
+- 移除 `api` 和 `web` 的 host 端口暴露（Caddy 在内部 docker 网络直连）
+- 新增 `caddy` 服务（80/443）+ `caddy_data`/`caddy_config` 卷
+
+`Caddyfile` 配置：
+- 自动申请 Let's Encrypt 证书（需要 80/443 对外可达）
+- 反代到 `web:80`（web 容器内 nginx 再反代 `/api/*` 到 api）
+- 开启 gzip/zstd 压缩
+- 注入标准安全响应头
+- 访问日志写入 `caddy_data` 卷（容器内 `/data/access.log`）
+
+### 14.4 备份
+
+```bash
+# 手动跑一次
+./backup.sh
+
+# 加 cron 每天凌晨 3 点自动备
+crontab -e
+# 加这一行：
+0 3 * * * cd /opt/wechat-batch-rewriter && ./backup.sh >> /var/log/wechat-backup.log 2>&1
+```
+
+备份保留 30 天，自动清理旧目录。`backups/YYYY-MM-DD/` 包含 `db.sql.gz` + `env.bak`。
+
+**重要**：`env.bak` 里的 `ENCRYPTION_KEY` 是恢复 AppSecret/AI key 的唯一凭证。建议把 `backups/` 目录每周再 rsync 到 OSS/S3 异地。
+
+如果要备份图片（默认不备，体积大）：
+
+```bash
+BACKUP_IMAGES=yes ./backup.sh
+```
+
+### 14.5 迁移到新服务器
+
+```bash
+# 在新机上
+ssh new@new-server
+git clone git@github.com:你/wechat-batch-rewriter.git /opt/wechat-batch-rewriter
+cd /opt/wechat-batch-rewriter
+
+# 拷贝旧机最新备份
+scp -r old@old-server:/opt/wechat-batch-rewriter/backups/2026-05-06 ./backups/
+
+# 用旧的 .env（关键：ENCRYPTION_KEY 不能变）
+cp ./backups/2026-05-06/env.bak .env
+
+# 启栈（空数据库）
+chmod +x deploy.sh backup.sh
+./deploy.sh
+
+# 还原数据库
+gunzip -c ./backups/2026-05-06/db.sql.gz | \
+    docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T postgres \
+    psql -U postgres wechat_rewriter
+
+# 改 DNS 指向新机 IP，等 TTL 生效即可
+```
