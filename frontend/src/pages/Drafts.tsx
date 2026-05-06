@@ -102,7 +102,7 @@ export default function Drafts() {
   });
 
   // Running start index per group (precomputed so JSX stays pure)
-  const groupStartIndices = groups.reduce<number[]>((acc, g, i) => {
+  const groupStartIndices = groups.reduce<number[]>((acc, _g, i) => {
     acc.push(i === 0 ? 0 : acc[i - 1] + groups[i - 1].items.length);
     return acc;
   }, []);
