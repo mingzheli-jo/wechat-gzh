@@ -4,9 +4,9 @@ import { api } from "../api/client";
 import {
   Badge,
   Button,
-  Card,
   ConfirmModal,
   EmptyState,
+  EyebrowLabel,
   Input,
   Modal,
   PageSpinner,
@@ -57,12 +57,51 @@ function validateForm(data: AccountFormData, isEdit: boolean): FormErrors {
   return errors;
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("zh-CN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
+// ---- Toggle switch component ----
+
+interface ToggleSwitchProps {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}
+
+function ToggleSwitch({ checked, onChange, disabled }: ToggleSwitchProps) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      style={{
+        position: "relative",
+        display: "inline-flex",
+        width: "32px",
+        height: "18px",
+        borderRadius: "var(--radius-full)",
+        backgroundColor: checked ? "var(--color-ink)" : "var(--color-surface-3)",
+        border: "none",
+        cursor: disabled ? "not-allowed" : "pointer",
+        padding: 0,
+        transition: "background-color var(--dur-fast)",
+        flexShrink: 0,
+        outline: "none",
+      }}
+    >
+      <span
+        style={{
+          position: "absolute",
+          top: "3px",
+          left: checked ? "17px" : "3px",
+          width: "12px",
+          height: "12px",
+          borderRadius: "50%",
+          backgroundColor: "var(--color-white)",
+          transition: "left var(--dur-fast)",
+        }}
+      />
+    </button>
+  );
 }
 
 // ---- Account Form Modal ----
@@ -277,44 +316,12 @@ export default function Accounts() {
   }
 
   return (
-    <div
-      style={{
-        maxWidth: "var(--max-content)",
-        margin: "0 auto",
-        padding: "var(--space-8)",
-      }}
-    >
+    <div className="page-shell">
       {/* Page header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          marginBottom: "var(--space-8)",
-          gap: "var(--space-4)",
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              fontSize: "var(--text-xl)",
-              fontWeight: "var(--weight-semi)",
-              color: "var(--color-ink)",
-              letterSpacing: "-0.02em",
-              margin: 0,
-            }}
-          >
-            公众号管理
-          </h1>
-          <p
-            style={{
-              fontSize: "var(--text-sm)",
-              color: "var(--color-ink-3)",
-              marginTop: "var(--space-1)",
-            }}
-          >
-            管理改写目标公众号及其 AI 改写配置
-          </p>
+      <div className="page-header">
+        <div className="page-header-meta">
+          <h1 className="text-page-title">公众号</h1>
+          <p className="text-page-subtitle">管理改写目标公众号及其 AI 改写配置</p>
         </div>
         <Button onClick={openCreate} style={{ flexShrink: 0 }}>
           新增公众号
@@ -338,144 +345,117 @@ export default function Accounts() {
           action={<Button onClick={openCreate}>新增公众号</Button>}
         />
       ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
-            gap: "var(--space-4)",
-          }}
-        >
+        <div style={{ display: "flex", flexDirection: "column" }}>
           {data.map((account, i) => (
-            <Card
+            <div
               key={account.id}
-              padding="md"
               style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "var(--space-3)",
-                opacity: account.is_active ? 1 : 0.6,
+                display: "grid",
+                gridTemplateColumns: "56px 1fr auto auto",
+                alignItems: "center",
+                gap: "var(--space-5)",
+                padding: "var(--space-5) var(--space-2)",
+                borderBottom: "1px solid var(--color-surface-3)",
+                opacity: account.is_active ? 1 : 0.55,
                 animation: `fade-in var(--dur-normal) ${i * 40}ms var(--ease-out) both`,
+                transition: "opacity var(--dur-fast)",
               }}
             >
-              {/* Card header */}
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--space-3)" }}>
-                <div style={{ minWidth: 0 }}>
-                  <h3
+              {/* Avatar circle */}
+              <div
+                style={{
+                  width: "40px",
+                  height: "40px",
+                  borderRadius: "50%",
+                  backgroundColor: "var(--color-surface-2)",
+                  border: "1px solid var(--color-surface-3)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "var(--text-base)",
+                  fontWeight: "var(--weight-medium)",
+                  color: "var(--color-ink-2)",
+                  flexShrink: 0,
+                  userSelect: "none",
+                }}
+              >
+                {account.name.charAt(0)}
+              </div>
+
+              {/* Name + meta column */}
+              <div style={{ minWidth: 0 }}>
+                <p
+                  className="text-section-title"
+                  style={{ margin: "0 0 var(--space-1) 0", fontSize: "var(--text-base)" }}
+                >
+                  {account.name}
+                </p>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "var(--space-2)",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span
+                    className="mono"
                     style={{
-                      fontSize: "var(--text-base)",
-                      fontWeight: "var(--weight-semi)",
-                      color: "var(--color-ink)",
-                      margin: 0,
-                      lineHeight: "var(--leading-snug)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
-                    }}
-                  >
-                    {account.name}
-                  </h3>
-                  <p
-                    style={{
-                      fontSize: "var(--text-xs)",
-                      color: "var(--color-ink-3)",
-                      fontFamily: "var(--font-mono)",
-                      marginTop: "var(--space-1)",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
+                      maxWidth: "200px",
                     }}
                   >
                     {account.wechat_appid}
+                  </span>
+                  <Badge variant="outline">{account.category}</Badge>
+                </div>
+                {account.style_desc && (
+                  <p
+                    style={{
+                      margin: "var(--space-1) 0 0 0",
+                      fontSize: "var(--text-xs)",
+                      color: "var(--color-ink-3)",
+                      fontStyle: "italic",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {account.style_desc}
                   </p>
-                </div>
-                <Badge variant={account.is_active ? "done" : "default"} className="flex-shrink-0">
+                )}
+              </div>
+
+              {/* Active toggle */}
+              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexShrink: 0 }}>
+                <EyebrowLabel style={{ fontSize: "10px" }}>
                   {account.is_active ? "启用" : "停用"}
-                </Badge>
+                </EyebrowLabel>
+                <ToggleSwitch
+                  checked={account.is_active}
+                  onChange={(v) => toggleActive.mutate({ id: account.id, is_active: v })}
+                  disabled={toggleActive.isPending}
+                />
               </div>
 
-              {/* Meta */}
-              <div
-                style={{
-                  display: "flex",
-                  gap: "var(--space-2)",
-                  flexWrap: "wrap",
-                }}
-              >
-                <Badge variant="outline">{account.category}</Badge>
-              </div>
-
-              {/* Prompts preview */}
-              {(account.title_prompt || account.content_prompt || account.style_desc) && (
-                <div
-                  style={{
-                    padding: "var(--space-3)",
-                    backgroundColor: "var(--color-surface-2)",
-                    borderRadius: "var(--radius-md)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "var(--space-2)",
-                  }}
+              {/* Actions */}
+              <div style={{ display: "flex", gap: "var(--space-1)", flexShrink: 0 }}>
+                <Button variant="ghost" size="sm" onClick={() => openEdit(account)}>
+                  编辑
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setDeleteTarget(account)}
+                  style={{ color: "var(--color-failed-fg)" }}
                 >
-                  {account.style_desc && (
-                    <p
-                      style={{
-                        fontSize: "var(--text-xs)",
-                        color: "var(--color-ink-2)",
-                        margin: 0,
-                        lineHeight: "var(--leading-snug)",
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                      }}
-                    >
-                      {account.style_desc}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Footer */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  borderTop: "1px solid var(--color-surface-2)",
-                  paddingTop: "var(--space-3)",
-                  marginTop: "auto",
-                }}
-              >
-                <span style={{ fontSize: "var(--text-xs)", color: "var(--color-ink-4)" }}>
-                  创建于 {formatDate(account.created_at)}
-                </span>
-                <div style={{ display: "flex", gap: "var(--space-2)" }}>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      toggleActive.mutate({
-                        id: account.id,
-                        is_active: !account.is_active,
-                      })
-                    }
-                  >
-                    {account.is_active ? "停用" : "启用"}
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => openEdit(account)}>
-                    编辑
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setDeleteTarget(account)}
-                    style={{ color: "var(--color-failed-fg)" }}
-                  >
-                    删除
-                  </Button>
-                </div>
+                  删除
+                </Button>
               </div>
-            </Card>
+            </div>
           ))}
         </div>
       )}

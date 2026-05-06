@@ -4,7 +4,6 @@ import { api } from "../api/client";
 import {
   Badge,
   Button,
-  Card,
   EyebrowLabel,
   HairlineRule,
   Input,
@@ -93,11 +92,9 @@ function ProviderForm({ onSuccess }: ProviderFormProps) {
 
   return (
     <div
+      className="surface-paper"
       style={{
-        border: "1px solid var(--color-surface-3)",
-        borderRadius: "var(--radius-lg)",
         padding: "var(--space-5)",
-        backgroundColor: "var(--color-surface-2)",
         display: "flex",
         flexDirection: "column",
         gap: "var(--space-4)",
@@ -149,7 +146,7 @@ function ProviderForm({ onSuccess }: ProviderFormProps) {
       />
 
       {create.isError && (
-        <p style={{ fontSize: "var(--text-xs)", color: "var(--color-failed-fg)" }}>
+        <p style={{ fontSize: "var(--text-xs)", color: "var(--color-failed-fg)", margin: 0 }}>
           添加失败，请检查填写内容后重试
         </p>
       )}
@@ -186,6 +183,18 @@ function RoleRow({ role, providers, current, onSave, isSaving }: RoleRowProps) {
 
   const selectedProvider = providers.find((p) => p.id === providerId);
 
+  const selectStyle: React.CSSProperties = {
+    padding: "var(--space-2) var(--space-3)",
+    fontSize: "var(--text-sm)",
+    color: "var(--color-ink)",
+    backgroundColor: "var(--color-white)",
+    border: "1px solid var(--color-surface-3)",
+    borderRadius: "var(--radius-md)",
+    outline: "none",
+    cursor: "pointer",
+    width: "100%",
+  };
+
   return (
     <div
       style={{
@@ -193,12 +202,11 @@ function RoleRow({ role, providers, current, onSave, isSaving }: RoleRowProps) {
         gridTemplateColumns: "140px 1fr 1fr auto",
         gap: "var(--space-3)",
         alignItems: "end",
-        padding: "var(--space-4)",
-        backgroundColor: "var(--color-surface-2)",
-        borderRadius: "var(--radius-md)",
-        border: "1px solid var(--color-surface-3)",
+        padding: "var(--space-4) var(--space-2)",
+        borderBottom: "1px solid var(--color-surface-3)",
       }}
     >
+      {/* Role label */}
       <div>
         <p
           style={{
@@ -222,61 +230,36 @@ function RoleRow({ role, providers, current, onSave, isSaving }: RoleRowProps) {
         </p>
       </div>
 
+      {/* Provider select */}
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
-        <label style={{ fontSize: "var(--text-xs)", fontWeight: "var(--weight-medium)", color: "var(--color-ink-2)" }}>
-          Provider
-        </label>
+        <label className="field-label" style={{ marginBottom: 0 }}>Provider</label>
         <select
           value={providerId}
           onChange={(e) => {
             setProviderId(e.target.value);
             setModel("");
           }}
-          style={{
-            padding: "var(--space-2) var(--space-3)",
-            fontSize: "var(--text-sm)",
-            color: "var(--color-ink)",
-            backgroundColor: "var(--color-white)",
-            border: "1px solid var(--color-surface-3)",
-            borderRadius: "var(--radius-md)",
-            outline: "none",
-            cursor: "pointer",
-          }}
+          style={selectStyle}
         >
           <option value="">— 选择 —</option>
           {providers.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
+            <option key={p.id} value={p.id}>{p.name}</option>
           ))}
         </select>
       </div>
 
+      {/* Model select/input */}
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
-        <label style={{ fontSize: "var(--text-xs)", fontWeight: "var(--weight-medium)", color: "var(--color-ink-2)" }}>
-          模型
-        </label>
+        <label className="field-label" style={{ marginBottom: 0 }}>模型</label>
         {selectedProvider && selectedProvider.models.length > 0 ? (
           <select
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            style={{
-              padding: "var(--space-2) var(--space-3)",
-              fontSize: "var(--text-sm)",
-              fontFamily: "var(--font-mono)",
-              color: "var(--color-ink)",
-              backgroundColor: "var(--color-white)",
-              border: "1px solid var(--color-surface-3)",
-              borderRadius: "var(--radius-md)",
-              outline: "none",
-              cursor: "pointer",
-            }}
+            style={{ ...selectStyle, fontFamily: "var(--font-mono)" }}
           >
             <option value="">— 选择模型 —</option>
             {selectedProvider.models.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
+              <option key={m} value={m}>{m}</option>
             ))}
           </select>
         ) : (
@@ -284,16 +267,7 @@ function RoleRow({ role, providers, current, onSave, isSaving }: RoleRowProps) {
             value={model}
             onChange={(e) => setModel(e.target.value)}
             placeholder="模型 ID"
-            style={{
-              padding: "var(--space-2) var(--space-3)",
-              fontSize: "var(--text-sm)",
-              fontFamily: "var(--font-mono)",
-              color: "var(--color-ink)",
-              backgroundColor: "var(--color-white)",
-              border: "1px solid var(--color-surface-3)",
-              borderRadius: "var(--radius-md)",
-              outline: "none",
-            }}
+            className="input-base input-mono"
           />
         )}
       </div>
@@ -339,7 +313,6 @@ type UsageSummary = {
   total_cost: number;
 };
 
-// Stacking order for the chart (bottom-to-top). Also drives legend order.
 const ROLE_STACK_ORDER = ["writer", "reviewer", "lite", "unknown"] as const;
 
 const ROLE_COLORS: Record<string, string> = {
@@ -377,7 +350,6 @@ function formatDelta(ratio: number | null): { text: string; color: string } {
   return { text, color };
 }
 
-// MM-DD slice for compact x-axis labels
 function shortDay(iso: string): string {
   return iso.length >= 10 ? iso.slice(5) : iso;
 }
@@ -399,7 +371,6 @@ function UsageDashboard() {
 
   const [hover, setHover] = useState<ChartHover | null>(null);
 
-  // Build a 30-day window ending today so empty days appear as ground line.
   const days30 = useMemo<string[]>(() => {
     const arr: string[] = [];
     const now = new Date();
@@ -412,62 +383,62 @@ function UsageDashboard() {
   }, []);
 
   const stats = useMemo(() => {
-    if (!usage.data) {
+    if (!usage.data) return null;
+    try {
+      const daily = usage.data.daily ?? [];
+      const byRole = usage.data.by_role ?? [];
+      const dailyMap = new Map(daily.map((d) => [d.day, d]));
+      const cutoff = days30[0];
+      let recentCost = 0;
+      let priorCost = 0;
+      let recentPrompt = 0;
+      let recentCompletion = 0;
+      for (const d of daily) {
+        if (d.day >= cutoff) {
+          recentCost += d.cost_estimate;
+          recentPrompt += d.prompt_tokens;
+          recentCompletion += d.completion_tokens;
+        } else {
+          priorCost += d.cost_estimate;
+        }
+      }
+      const delta = priorCost === 0 ? null : (recentCost - priorCost) / priorCost;
+
+      const seenRoles = new Set<string>();
+      for (const day of days30) {
+        const entry = dailyMap.get(day);
+        if (!entry?.by_role) continue;
+        for (const role of Object.keys(entry.by_role)) seenRoles.add(role);
+      }
+      const orderedRoles = [
+        ...ROLE_STACK_ORDER.filter((r) => seenRoles.has(r)),
+        ...[...seenRoles].filter(
+          (r) => !ROLE_STACK_ORDER.includes(r as (typeof ROLE_STACK_ORDER)[number])
+        ),
+      ];
+
+      const maxCost = days30.reduce((m, day) => {
+        const entry = dailyMap.get(day);
+        return entry ? Math.max(m, entry.cost_estimate) : m;
+      }, 0);
+
+      return { dailyMap, recentCost, priorCost, recentPrompt, recentCompletion, delta, orderedRoles, maxCost, daily, byRole };
+    } catch {
       return null;
     }
-    const dailyMap = new Map(usage.data.daily.map((d) => [d.day, d]));
-    const cutoff = days30[0];
-    let recentCost = 0;
-    let priorCost = 0;
-    let recentPrompt = 0;
-    let recentCompletion = 0;
-    for (const d of usage.data.daily) {
-      if (d.day >= cutoff) {
-        recentCost += d.cost_estimate;
-        recentPrompt += d.prompt_tokens;
-        recentCompletion += d.completion_tokens;
-      } else {
-        priorCost += d.cost_estimate;
-      }
-    }
-    const delta =
-      priorCost === 0 ? null : (recentCost - priorCost) / priorCost;
-
-    // Role keys present in the visible window (preserve stack order; append
-    // any unexpected roles at the end so they still render).
-    const seenRoles = new Set<string>();
-    for (const day of days30) {
-      const entry = dailyMap.get(day);
-      if (!entry?.by_role) continue;
-      for (const role of Object.keys(entry.by_role)) {
-        seenRoles.add(role);
-      }
-    }
-    const orderedRoles = [
-      ...ROLE_STACK_ORDER.filter((r) => seenRoles.has(r)),
-      ...[...seenRoles].filter(
-        (r) => !ROLE_STACK_ORDER.includes(r as (typeof ROLE_STACK_ORDER)[number]),
-      ),
-    ];
-
-    const maxCost = days30.reduce((m, day) => {
-      const entry = dailyMap.get(day);
-      return entry ? Math.max(m, entry.cost_estimate) : m;
-    }, 0);
-
-    return {
-      dailyMap,
-      recentCost,
-      priorCost,
-      recentPrompt,
-      recentCompletion,
-      delta,
-      orderedRoles,
-      maxCost,
-    };
   }, [usage.data, days30]);
 
-  if (!usage.data || !stats) return null;
+  if (!usage.data) return null;
+
+  // Data exists but is empty — show placeholder instead of crashing
+  if (!stats || (stats.daily.length === 0)) {
+    return (
+      <section style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+        <h2 className="text-section-title">AI 用量</h2>
+        <p className="text-page-subtitle">暂无 AI 用量数据 — 完成首次改写后将出现统计</p>
+      </section>
+    );
+  }
   const u = usage.data;
   const delta = formatDelta(stats.delta);
 
@@ -485,7 +456,7 @@ function UsageDashboard() {
         AI 用量
       </h2>
 
-      {/* Hero number block — replaces the 3 equal summary cards */}
+      {/* Hero number block */}
       <div>
         <div
           style={{
@@ -527,13 +498,7 @@ function UsageDashboard() {
             </p>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "var(--space-3)",
-            }}
-          >
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
             {[
               { label: "Prompt tokens", value: stats.recentPrompt },
               { label: "Completion tokens", value: stats.recentCompletion },
@@ -574,21 +539,13 @@ function UsageDashboard() {
           <EyebrowLabel>每日成本 · 按角色</EyebrowLabel>
           <div style={{ display: "flex", gap: "var(--space-3)" }}>
             {stats.orderedRoles.map((role) => (
-              <div
-                key={role}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "var(--space-1)",
-                }}
-              >
+              <div key={role} style={{ display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
                 <span
                   aria-hidden="true"
                   style={{
                     width: "8px",
                     height: "8px",
-                    backgroundColor:
-                      ROLE_COLORS[role] ?? "var(--color-surface-4)",
+                    backgroundColor: ROLE_COLORS[role] ?? "var(--color-surface-4)",
                   }}
                 />
                 <span
@@ -619,22 +576,13 @@ function UsageDashboard() {
             const entry = stats.dailyMap.get(day);
             const total = entry?.cost_estimate ?? 0;
             const byRole = entry?.by_role ?? {};
-            const heightPct =
-              stats.maxCost > 0 ? (total / stats.maxCost) * 100 : 0;
+            const heightPct = stats.maxCost > 0 ? (total / stats.maxCost) * 100 : 0;
             const isHover = hover?.day === day;
 
             return (
               <div
                 key={day}
-                onMouseEnter={() =>
-                  setHover({
-                    day,
-                    total,
-                    byRole,
-                    index,
-                    totalDays: days30.length,
-                  })
-                }
+                onMouseEnter={() => setHover({ day, total, byRole, index, totalDays: days30.length })}
                 style={{
                   flex: 1,
                   minWidth: 0,
@@ -642,7 +590,6 @@ function UsageDashboard() {
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "flex-end",
-                  cursor: total > 0 ? "default" : "default",
                   position: "relative",
                 }}
               >
@@ -665,8 +612,7 @@ function UsageDashboard() {
                           key={role}
                           style={{
                             height: `${segPct}%`,
-                            backgroundColor:
-                              ROLE_COLORS[role] ?? "var(--color-surface-4)",
+                            backgroundColor: ROLE_COLORS[role] ?? "var(--color-surface-4)",
                           }}
                         />
                       );
@@ -695,11 +641,7 @@ function UsageDashboard() {
                 bottom: "calc(100% + 8px)",
                 left: `${(hover.index / Math.max(1, hover.totalDays - 1)) * 100}%`,
                 transform: `translateX(${
-                  hover.index < 4
-                    ? "0%"
-                    : hover.index > hover.totalDays - 5
-                    ? "-100%"
-                    : "-50%"
+                  hover.index < 4 ? "0%" : hover.index > hover.totalDays - 5 ? "-100%" : "-50%"
                 })`,
                 backgroundColor: "var(--color-ink)",
                 color: "var(--color-accent-fg)",
@@ -715,13 +657,7 @@ function UsageDashboard() {
                 lineHeight: "var(--leading-snug)",
               }}
             >
-              <div
-                style={{
-                  fontWeight: "var(--weight-medium)",
-                  marginBottom: "var(--space-1)",
-                  letterSpacing: "0.04em",
-                }}
-              >
+              <div style={{ fontWeight: "var(--weight-medium)", marginBottom: "var(--space-1)", letterSpacing: "0.04em" }}>
                 {hover.day}
               </div>
               {stats.orderedRoles.map((role) => {
@@ -730,34 +666,17 @@ function UsageDashboard() {
                 return (
                   <div
                     key={role}
-                    style={{
-                      display: "flex",
-                      gap: "var(--space-3)",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                    }}
+                    style={{ display: "flex", gap: "var(--space-3)", alignItems: "center", justifyContent: "space-between" }}
                   >
                     <span style={{ display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
-                      <span
-                        aria-hidden="true"
-                        style={{
-                          width: "6px",
-                          height: "6px",
-                          backgroundColor:
-                            ROLE_COLORS[role] ?? "var(--color-surface-4)",
-                        }}
-                      />
-                      <span style={{ opacity: 0.7 }}>
-                        {ROLE_DASH_LABELS[role] ?? role}
-                      </span>
+                      <span aria-hidden="true" style={{ width: "6px", height: "6px", backgroundColor: ROLE_COLORS[role] ?? "var(--color-surface-4)" }} />
+                      <span style={{ opacity: 0.7 }}>{ROLE_DASH_LABELS[role] ?? role}</span>
                     </span>
                     <span>{formatCost(c)}</span>
                   </div>
                 );
               })}
-              {hover.total === 0 && (
-                <div style={{ opacity: 0.6 }}>无调用</div>
-              )}
+              {hover.total === 0 && <div style={{ opacity: 0.6 }}>无调用</div>}
               {hover.total > 0 && (
                 <div
                   style={{
@@ -769,23 +688,15 @@ function UsageDashboard() {
                   }}
                 >
                   <span style={{ opacity: 0.7 }}>total</span>
-                  <span style={{ fontWeight: "var(--weight-medium)" }}>
-                    {formatCost(hover.total)}
-                  </span>
+                  <span style={{ fontWeight: "var(--weight-medium)" }}>{formatCost(hover.total)}</span>
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* X-axis weekly ticks */}
-        <div
-          style={{
-            display: "flex",
-            gap: "2px",
-            marginTop: "var(--space-2)",
-          }}
-        >
+        {/* X-axis */}
+        <div style={{ display: "flex", gap: "2px", marginTop: "var(--space-2)" }}>
           {days30.map((day, i) => (
             <div
               key={day}
@@ -816,20 +727,14 @@ function UsageDashboard() {
           }}
         >
           <span>{days30[0]} → {days30[days30.length - 1]}</span>
-          <span
-            style={{
-              color: "var(--color-ink)",
-              letterSpacing: "0.02em",
-              fontWeight: "var(--weight-medium)",
-            }}
-          >
+          <span style={{ color: "var(--color-ink)", letterSpacing: "0.02em", fontWeight: "var(--weight-medium)" }}>
             total · {formatCost(stats.recentCost)}
           </span>
         </div>
       </div>
 
       {/* By-role table */}
-      {u.by_role.length > 0 && (
+      {(u.by_role ?? []).length > 0 && (
         <div
           style={{
             backgroundColor: "var(--color-white)",
@@ -861,10 +766,9 @@ function UsageDashboard() {
               </tr>
             </thead>
             <tbody>
-              {u.by_role.map((r, i) => {
+              {(u.by_role ?? []).map((r, i) => {
                 const roleKey = r.role ?? "unknown";
-                const swatchColor =
-                  ROLE_COLORS[roleKey] ?? "var(--color-surface-4)";
+                const swatchColor = ROLE_COLORS[roleKey] ?? "var(--color-surface-4)";
                 const dashLabel = ROLE_DASH_LABELS[roleKey] ?? roleKey;
                 return (
                   <tr
@@ -873,79 +777,25 @@ function UsageDashboard() {
                       borderTop: i > 0 ? "1px solid var(--color-surface-2)" : "none",
                       transition: "background-color var(--dur-fast)",
                     }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor =
-                        "var(--color-surface-2)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = "";
-                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--color-surface-2)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ""; }}
                   >
                     <td style={{ padding: "var(--space-3) var(--space-4)" }}>
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "var(--space-2)",
-                        }}
-                      >
-                        <span
-                          aria-hidden="true"
-                          style={{
-                            width: "8px",
-                            height: "8px",
-                            backgroundColor: swatchColor,
-                            flexShrink: 0,
-                          }}
-                        />
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
+                        <span aria-hidden="true" style={{ width: "8px", height: "8px", backgroundColor: swatchColor, flexShrink: 0 }} />
                         <EyebrowLabel as="span">{dashLabel}</EyebrowLabel>
                       </span>
                     </td>
-                    <td
-                      style={{
-                        padding: "var(--space-3) var(--space-4)",
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "var(--text-xs)",
-                        color: "var(--color-ink-2)",
-                      }}
-                    >
+                    <td style={{ padding: "var(--space-3) var(--space-4)", fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: "var(--color-ink-2)" }}>
                       {r.provider ?? "—"} / {r.model}
                     </td>
-                    <td
-                      style={{
-                        padding: "var(--space-3) var(--space-4)",
-                        textAlign: "right",
-                        fontFamily: "var(--font-mono)",
-                        fontVariantNumeric: "tabular-nums",
-                        fontSize: "var(--text-xs)",
-                        color: "var(--color-ink-2)",
-                      }}
-                    >
+                    <td style={{ padding: "var(--space-3) var(--space-4)", textAlign: "right", fontFamily: "var(--font-mono)", fontVariantNumeric: "tabular-nums", fontSize: "var(--text-xs)", color: "var(--color-ink-2)" }}>
                       {r.calls}
                     </td>
-                    <td
-                      style={{
-                        padding: "var(--space-3) var(--space-4)",
-                        textAlign: "right",
-                        fontFamily: "var(--font-mono)",
-                        fontVariantNumeric: "tabular-nums",
-                        fontSize: "var(--text-xs)",
-                        color: "var(--color-ink-2)",
-                      }}
-                    >
+                    <td style={{ padding: "var(--space-3) var(--space-4)", textAlign: "right", fontFamily: "var(--font-mono)", fontVariantNumeric: "tabular-nums", fontSize: "var(--text-xs)", color: "var(--color-ink-2)" }}>
                       {(r.prompt_tokens + r.completion_tokens).toLocaleString()}
                     </td>
-                    <td
-                      style={{
-                        padding: "var(--space-3) var(--space-4)",
-                        textAlign: "right",
-                        fontFamily: "var(--font-mono)",
-                        fontVariantNumeric: "tabular-nums",
-                        fontSize: "var(--text-xs)",
-                        color: "var(--color-ink)",
-                        fontWeight: "var(--weight-medium)",
-                      }}
-                    >
+                    <td style={{ padding: "var(--space-3) var(--space-4)", textAlign: "right", fontFamily: "var(--font-mono)", fontVariantNumeric: "tabular-nums", fontSize: "var(--text-xs)", color: "var(--color-ink)", fontWeight: "var(--weight-medium)" }}>
                       {formatCost(r.cost_estimate)}
                     </td>
                   </tr>
@@ -992,32 +842,13 @@ export default function Settings() {
   if (providers.isLoading) return <PageSpinner />;
 
   return (
-    <div
-      style={{
-        maxWidth: "var(--max-narrow)",
-        margin: "0 auto",
-        padding: "var(--space-8)",
-        display: "flex",
-        flexDirection: "column",
-        gap: "var(--space-10)",
-      }}
-    >
+    <div className="page-shell page-shell-narrow" style={{ display: "flex", flexDirection: "column", gap: "var(--space-10)" }}>
       {/* Page header */}
-      <div>
-        <h1
-          style={{
-            fontSize: "var(--text-xl)",
-            fontWeight: "var(--weight-semi)",
-            color: "var(--color-ink)",
-            letterSpacing: "-0.02em",
-            margin: 0,
-          }}
-        >
-          设置
-        </h1>
-        <p style={{ fontSize: "var(--text-sm)", color: "var(--color-ink-3)", marginTop: "var(--space-1)" }}>
-          AI 服务商配置与角色绑定
-        </p>
+      <div className="page-header" style={{ marginBottom: 0 }}>
+        <div className="page-header-meta">
+          <h1 className="text-page-title">设置</h1>
+          <p className="text-page-subtitle">AI 服务商配置 · 角色绑定 · 用量看板</p>
+        </div>
       </div>
 
       {/* AI Providers */}
@@ -1035,51 +866,57 @@ export default function Settings() {
         </h2>
 
         {providers.data && providers.data.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-            {providers.data.map((p) => (
-              <Card key={p.id} padding="md">
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--space-4)" }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-1)" }}>
-                      <p
-                        style={{
-                          fontSize: "var(--text-base)",
-                          fontWeight: "var(--weight-medium)",
-                          color: "var(--color-ink)",
-                          margin: 0,
-                        }}
-                      >
-                        {p.name}
-                      </p>
-                      <Badge variant={p.enabled ? "done" : "default"}>
-                        {p.enabled ? "启用" : "停用"}
-                      </Badge>
-                    </div>
-                    <p
-                      style={{
-                        fontSize: "var(--text-xs)",
-                        fontFamily: "var(--font-mono)",
-                        color: "var(--color-ink-3)",
-                        margin: "0 0 var(--space-2) 0",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {p.base_url}
-                    </p>
-                    {p.models.length > 0 && (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-1)" }}>
-                        {p.models.map((m) => (
-                          <Badge key={m} variant="outline">
-                            {m}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {providers.data.map((p, i) => (
+              <div
+                key={p.id}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "auto 1fr auto",
+                  alignItems: "center",
+                  gap: "var(--space-4)",
+                  padding: "var(--space-4) var(--space-2)",
+                  borderBottom: "1px solid var(--color-surface-3)",
+                  borderTop: i === 0 ? "1px solid var(--color-surface-3)" : undefined,
+                }}
+              >
+                {/* Name + status */}
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+                  <p
+                    style={{
+                      fontSize: "var(--text-sm)",
+                      fontWeight: "var(--weight-medium)",
+                      color: "var(--color-ink)",
+                      margin: 0,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {p.name}
+                  </p>
+                  <Badge variant={p.enabled ? "done" : "default"}>
+                    {p.enabled ? "启用" : "停用"}
+                  </Badge>
                 </div>
-              </Card>
+
+                {/* Base URL */}
+                <span
+                  className="mono"
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {p.base_url}
+                </span>
+
+                {/* Models */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-1)", justifyContent: "flex-end" }}>
+                  {p.models.map((m) => (
+                    <Badge key={m} variant="outline">{m}</Badge>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -1088,7 +925,7 @@ export default function Settings() {
       </section>
 
       {/* Role bindings */}
-      <section style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+      <section style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
         <div>
           <h2
             style={{
@@ -1106,7 +943,7 @@ export default function Settings() {
           </p>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+        <div style={{ display: "flex", flexDirection: "column" }}>
           {(["writer", "reviewer", "lite"] as Role[]).map((role) => {
             const current = bindings.data?.find((b) => b.role === role);
             return (
@@ -1123,7 +960,7 @@ export default function Settings() {
         </div>
       </section>
 
-      {/* Usage dashboard */}
+      {/* Usage dashboard — kept as-is */}
       <UsageDashboard />
     </div>
   );

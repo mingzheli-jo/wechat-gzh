@@ -7,7 +7,6 @@ import {
   Button,
   EmptyState,
   EyebrowLabel,
-  HairlineRule,
   PageSpinner,
 } from "../components/ui";
 
@@ -38,13 +37,7 @@ const STATUS_LABEL: Record<LibraryStatus, string> = {
   failed: "失败",
 };
 
-// Display order for the top status bar.
-const STATUS_BAR_ORDER: LibraryStatus[] = [
-  "pending",
-  "processing",
-  "done",
-  "failed",
-];
+const STATUS_BAR_ORDER: LibraryStatus[] = ["pending", "processing", "done", "failed"];
 
 const EMPTY_STATUS_COUNTS: Record<LibraryStatus, number> = {
   pending: 0,
@@ -130,59 +123,28 @@ export default function Library() {
   }, [data]);
 
   return (
-    <div
-      style={{
-        maxWidth: "var(--max-content)",
-        margin: "0 auto",
-        padding: "var(--space-8) var(--space-8) var(--space-20)",
-      }}
-    >
+    <div className="page-shell" style={{ paddingBottom: "var(--space-24)" }}>
       {/* Page header */}
-      <div style={{ marginBottom: "var(--space-5)" }}>
-        <h1
-          style={{
-            fontSize: "var(--text-xl)",
-            fontWeight: "var(--weight-semi)",
-            color: "var(--color-ink)",
-            letterSpacing: "-0.02em",
-            margin: 0,
-          }}
-        >
-          素材库
-        </h1>
-        <p style={{ fontSize: "var(--text-sm)", color: "var(--color-ink-3)", marginTop: "var(--space-1)" }}>
-          粘贴微信公众号文章链接，抓取后选择目标公众号批量改写
-        </p>
-      </div>
+      <div className="page-header">
+        <div className="page-header-meta">
+          <h1 className="text-page-title">素材库</h1>
+          <p className="text-page-subtitle">粘贴微信公众号文章链接，抓取后选择目标公众号批量改写</p>
+        </div>
 
-      {/* Status bar */}
-      {data && data.length > 0 && (
-        <>
-          <div
-            style={{
-              display: "flex",
-              gap: "var(--space-6)",
-              marginBottom: "var(--space-3)",
-            }}
-          >
+        {/* Status mini-stats row */}
+        {data && data.length > 0 && (
+          <div style={{ display: "flex", gap: "var(--space-6)", flexShrink: 0, alignItems: "flex-end" }}>
             {STATUS_BAR_ORDER.map((status) => {
               const count = statusCounts[status];
               const isProcessing = status === "processing" && count > 0;
               const isFailedAlert = status === "failed" && count > 0;
               return (
-                <div key={status} style={{ flex: 1, minWidth: 0 }}>
+                <div key={status} style={{ textAlign: "right" }}>
                   <div style={{ position: "relative", display: "inline-block" }}>
                     <span
+                      className="text-stat"
                       style={{
-                        fontSize: "var(--text-2xl)",
-                        fontWeight: "var(--weight-semi)",
-                        fontFamily: "var(--font-mono)",
-                        fontVariantNumeric: "tabular-nums",
-                        letterSpacing: "-0.02em",
-                        lineHeight: 1,
-                        color: isFailedAlert
-                          ? "var(--color-failed-fg)"
-                          : "var(--color-ink)",
+                        color: isFailedAlert ? "var(--color-failed-fg)" : "var(--color-ink)",
                         transition: "color var(--dur-normal)",
                       }}
                     >
@@ -206,10 +168,9 @@ export default function Library() {
                   </div>
                   <EyebrowLabel
                     style={{
+                      display: "block",
                       marginTop: "var(--space-1)",
-                      color: isFailedAlert
-                        ? "var(--color-failed-fg)"
-                        : "var(--color-ink-3)",
+                      color: isFailedAlert ? "var(--color-failed-fg)" : undefined,
                     }}
                   >
                     {STATUS_LABEL[status]}
@@ -218,20 +179,166 @@ export default function Library() {
               );
             })}
           </div>
-          <HairlineRule style={{ marginBottom: "var(--space-6)" }} />
-        </>
-      )}
+        )}
+      </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "var(--space-6)", alignItems: "start" }}>
-        {/* Input panel */}
+      {/* Two-pane layout: list (left) | add panel (right) */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 360px",
+          gap: "var(--space-8)",
+          alignItems: "start",
+        }}
+      >
+        {/* LEFT — article list */}
+        <div>
+          {isLoading ? (
+            <PageSpinner />
+          ) : !data || data.length === 0 ? (
+            <EmptyState
+              icon={
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                  <rect x="8" y="10" width="24" height="22" rx="3" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M14 17h12M14 22h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              }
+              title="素材库为空"
+              description="在右侧粘贴文章链接开始抓取"
+            />
+          ) : (
+            <div className="ed-table">
+              {data.map((item, i) => {
+                const isSelected = selected.has(item.id);
+                const indexStr = String(i + 1).padStart(2, "0");
+                return (
+                  <div
+                    key={item.id}
+                    className="ed-row"
+                    style={{
+                      gridTemplateColumns: "32px 1fr auto",
+                      cursor: item.status === "done" ? "pointer" : "default",
+                      animation: `fade-in var(--dur-normal) ${i * 30}ms var(--ease-out) both`,
+                      // Selected state: subtle bg + left accent
+                      backgroundColor: isSelected ? "var(--color-surface-2)" : undefined,
+                      borderLeft: isSelected ? "2px solid var(--color-ink)" : "2px solid transparent",
+                      paddingLeft: "calc(var(--space-2) - 2px)",
+                    }}
+                    onClick={() => item.status === "done" && toggle(item.id)}
+                  >
+                    {/* Index */}
+                    <span
+                      className="ed-row-index"
+                      style={{
+                        color: isSelected ? "var(--color-ink)" : undefined,
+                      }}
+                    >
+                      {indexStr}
+                    </span>
+
+                    {/* Content */}
+                    <div style={{ minWidth: 0 }}>
+                      <p className="ed-row-title" style={{ margin: 0 }}>
+                        {item.original_title ?? "（待抓取）"}
+                      </p>
+                      <p
+                        className="mono"
+                        style={{
+                          margin: "var(--space-1) 0 0 0",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {item.source_url}
+                      </p>
+                      {item.tags && item.tags.length > 0 && (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: "var(--space-1)",
+                            marginTop: "var(--space-2)",
+                          }}
+                        >
+                          {item.tags.map((t) => (
+                            <Badge key={t} variant="outline">{t}</Badge>
+                          ))}
+                        </div>
+                      )}
+                      {item.error_msg && (
+                        <p
+                          style={{
+                            fontSize: "var(--text-xs)",
+                            color: "var(--color-failed-fg)",
+                            margin: "var(--space-1) 0 0 0",
+                          }}
+                        >
+                          {item.error_msg}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Status + retry */}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "flex-end",
+                        gap: "var(--space-2)",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Badge variant={STATUS_BADGE[item.status]}>
+                        {item.status === "processing" && (
+                          <span
+                            style={{
+                              display: "inline-block",
+                              width: "6px",
+                              height: "6px",
+                              borderRadius: "50%",
+                              backgroundColor: "currentColor",
+                              animation: "pulse 1.2s ease-in-out infinite",
+                              marginRight: "4px",
+                            }}
+                          />
+                        )}
+                        {STATUS_LABEL[item.status]}
+                      </Badge>
+                      {item.status === "failed" && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            retry.mutate(item.id);
+                          }}
+                          style={{
+                            fontSize: "var(--text-xs)",
+                            color: "var(--color-link)",
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            padding: 0,
+                            textDecoration: "underline",
+                          }}
+                        >
+                          重试
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT — add article panel (sticky) */}
         <div
+          className="surface-panel"
           style={{
-            backgroundColor: "var(--color-white)",
-            border: "1px solid var(--color-surface-3)",
-            borderRadius: "var(--radius-lg)",
             padding: "var(--space-5)",
             position: "sticky",
-            top: "calc(var(--nav-height) + var(--space-6))",
+            top: "var(--space-8)",
           }}
         >
           <EyebrowLabel
@@ -243,20 +350,9 @@ export default function Library() {
 
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
             <div>
-              <label
-                htmlFor="urls"
-                style={{
-                  display: "block",
-                  fontSize: "var(--text-sm)",
-                  fontWeight: "var(--weight-medium)",
-                  color: "var(--color-ink-2)",
-                  marginBottom: "var(--space-1)",
-                }}
-              >
+              <label htmlFor="urls" className="field-label">
                 文章 URL
-                <span style={{ color: "var(--color-ink-4)", fontWeight: "var(--weight-normal)", marginLeft: "var(--space-2)" }}>
-                  一行一个
-                </span>
+                <span className="field-hint">一行一个</span>
               </label>
               <textarea
                 id="urls"
@@ -264,61 +360,22 @@ export default function Library() {
                 onChange={(e) => setText(e.target.value)}
                 placeholder={"https://mp.weixin.qq.com/s/...\nhttps://mp.weixin.qq.com/s/..."}
                 rows={6}
-                style={{
-                  width: "100%",
-                  padding: "var(--space-3)",
-                  fontSize: "var(--text-xs)",
-                  fontFamily: "var(--font-mono)",
-                  color: "var(--color-ink)",
-                  backgroundColor: "var(--color-surface-2)",
-                  border: "1px solid var(--color-surface-3)",
-                  borderRadius: "var(--radius-md)",
-                  outline: "none",
-                  resize: "vertical",
-                  lineHeight: "var(--leading-normal)",
-                  transition: "border-color var(--dur-fast)",
-                  boxSizing: "border-box",
-                }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = "var(--color-ink)"; e.currentTarget.style.backgroundColor = "var(--color-white)"; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = "var(--color-surface-3)"; e.currentTarget.style.backgroundColor = "var(--color-surface-2)"; }}
+                className="input-base input-mono"
+                style={{ resize: "vertical", lineHeight: "var(--leading-normal)" }}
               />
             </div>
 
             <div>
-              <label
-                htmlFor="tags"
-                style={{
-                  display: "block",
-                  fontSize: "var(--text-sm)",
-                  fontWeight: "var(--weight-medium)",
-                  color: "var(--color-ink-2)",
-                  marginBottom: "var(--space-1)",
-                }}
-              >
+              <label htmlFor="tags" className="field-label">
                 标签
-                <span style={{ color: "var(--color-ink-4)", fontWeight: "var(--weight-normal)", marginLeft: "var(--space-2)" }}>
-                  逗号分隔，选填
-                </span>
+                <span className="field-hint">逗号分隔，选填</span>
               </label>
               <input
                 id="tags"
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
                 placeholder="职场, 母婴, 健康"
-                style={{
-                  width: "100%",
-                  padding: "var(--space-2) var(--space-3)",
-                  fontSize: "var(--text-sm)",
-                  color: "var(--color-ink)",
-                  backgroundColor: "var(--color-surface-2)",
-                  border: "1px solid var(--color-surface-3)",
-                  borderRadius: "var(--radius-md)",
-                  outline: "none",
-                  transition: "border-color var(--dur-fast)",
-                  boxSizing: "border-box",
-                }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = "var(--color-ink)"; e.currentTarget.style.backgroundColor = "var(--color-white)"; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = "var(--color-surface-3)"; e.currentTarget.style.backgroundColor = "var(--color-surface-2)"; }}
+                className="input-base"
               />
             </div>
 
@@ -332,209 +389,17 @@ export default function Library() {
             </Button>
 
             {ingest.isError && (
-              <p style={{ fontSize: "var(--text-xs)", color: "var(--color-failed-fg)" }}>
+              <p style={{ fontSize: "var(--text-xs)", color: "var(--color-failed-fg)", margin: 0 }}>
                 提交失败，请重试
               </p>
             )}
           </div>
         </div>
-
-        {/* List panel */}
-        <div>
-          {isLoading ? (
-            <PageSpinner />
-          ) : !data || data.length === 0 ? (
-            <EmptyState
-              icon={
-                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                  <rect x="8" y="10" width="24" height="22" rx="3" stroke="currentColor" strokeWidth="1.5" />
-                  <path d="M14 17h12M14 22h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-              }
-              title="素材库为空"
-              description="在左侧粘贴文章链接开始抓取"
-            />
-          ) : (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                borderTop: "1px solid var(--color-surface-3)",
-              }}
-            >
-              {data.map((item, i) => {
-                const isSelected = selected.has(item.id);
-                return (
-                <div
-                  key={item.id}
-                  style={{
-                    position: "relative",
-                    backgroundColor: "transparent",
-                    borderBottom: "1px solid var(--color-surface-3)",
-                    padding: "var(--space-4) var(--space-5)",
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: "var(--space-4)",
-                    transition: "background-color var(--dur-fast)",
-                    cursor: item.status === "done" ? "pointer" : "default",
-                    animation: `fade-in var(--dur-normal) ${i * 30}ms var(--ease-out) both`,
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor =
-                      "var(--color-surface-2)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                  }}
-                  onClick={() => item.status === "done" && toggle(item.id)}
-                >
-                  {/* Selection indicator (left edge bar) */}
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      bottom: 0,
-                      left: 0,
-                      width: "3px",
-                      backgroundColor: "var(--color-ink)",
-                      opacity: isSelected ? 1 : 0,
-                      transition: "opacity var(--dur-fast)",
-                    }}
-                  />
-
-                  {/* Checkbox */}
-                  <div style={{ paddingTop: "2px", flexShrink: 0 }}>
-                    <input
-                      type="checkbox"
-                      disabled={item.status !== "done"}
-                      checked={isSelected}
-                      onChange={() => toggle(item.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      style={{
-                        width: "16px",
-                        height: "16px",
-                        cursor: item.status === "done" ? "pointer" : "not-allowed",
-                        accentColor: "var(--color-ink)",
-                      }}
-                      aria-label={`选择 ${item.original_title ?? item.source_url}`}
-                    />
-                  </div>
-
-                  {/* Content */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontSize: "var(--text-sm)",
-                        fontWeight: "var(--weight-medium)",
-                        color: "var(--color-ink)",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        marginBottom: "var(--space-1)",
-                      }}
-                    >
-                      {item.original_title ?? "（待抓取）"}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "var(--text-xs)",
-                        color: "var(--color-ink-3)",
-                        fontFamily: "var(--font-mono)",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        marginBottom: item.tags?.length || item.error_msg ? "var(--space-2)" : 0,
-                      }}
-                    >
-                      {item.source_url}
-                    </div>
-
-                    {item.tags && item.tags.length > 0 && (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-1)", marginTop: "var(--space-1)" }}>
-                        {item.tags.map((t) => (
-                          <Badge key={t} variant="outline">{t}</Badge>
-                        ))}
-                      </div>
-                    )}
-
-                    {item.error_msg && (
-                      <p
-                        style={{
-                          fontSize: "var(--text-xs)",
-                          color: "var(--color-failed-fg)",
-                          marginTop: "var(--space-1)",
-                          margin: "var(--space-1) 0 0",
-                        }}
-                      >
-                        {item.error_msg}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Status + action */}
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "var(--space-2)", flexShrink: 0 }}>
-                    <Badge variant={STATUS_BADGE[item.status]}>
-                      {item.status === "processing" && (
-                        <span
-                          style={{
-                            display: "inline-block",
-                            width: "6px",
-                            height: "6px",
-                            borderRadius: "50%",
-                            backgroundColor: "currentColor",
-                            animation: "pulse 1.2s ease-in-out infinite",
-                          }}
-                        />
-                      )}
-                      {STATUS_LABEL[item.status]}
-                    </Badge>
-                    {item.status === "failed" && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); retry.mutate(item.id); }}
-                        style={{
-                          fontSize: "var(--text-xs)",
-                          color: "var(--color-link)",
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
-                          padding: 0,
-                          textDecoration: "underline",
-                        }}
-                      >
-                        重试
-                      </button>
-                    )}
-                  </div>
-                </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Bottom action bar */}
       {selected.size > 0 && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: "var(--space-6)",
-            left: "50%",
-            transform: "translateX(-50%)",
-            backgroundColor: "var(--color-ink)",
-            color: "var(--color-accent-fg)",
-            borderRadius: "var(--radius-xl)",
-            padding: "var(--space-3) var(--space-4)",
-            display: "flex",
-            alignItems: "center",
-            gap: "var(--space-4)",
-            boxShadow: "var(--shadow-xl)",
-            animation: "slide-up var(--dur-slow) var(--ease-out) both",
-            zIndex: 30,
-            minWidth: "480px",
-          }}
-        >
+        <div className="action-bar">
           <span style={{ fontSize: "var(--text-sm)", whiteSpace: "nowrap", flexShrink: 0 }}>
             已选 <strong>{selected.size}</strong> 篇
           </span>
@@ -547,7 +412,7 @@ export default function Library() {
               minWidth: "160px",
               padding: "var(--space-2) var(--space-3)",
               fontSize: "var(--text-sm)",
-              color: selected.size > 0 && !accountId ? "rgba(255,255,255,0.4)" : "var(--color-white)",
+              color: accountId ? "var(--color-white)" : "rgba(255,255,255,0.45)",
               backgroundColor: "rgba(255,255,255,0.1)",
               border: "1px solid rgba(255,255,255,0.2)",
               borderRadius: "var(--radius-md)",
@@ -591,10 +456,11 @@ export default function Library() {
               background: "none",
               border: "none",
               color: "rgba(255,255,255,0.5)",
-              fontSize: "var(--text-xs)",
               cursor: "pointer",
               padding: "var(--space-1)",
               flexShrink: 0,
+              display: "flex",
+              alignItems: "center",
             }}
             aria-label="清空选择"
           >

@@ -30,18 +30,18 @@ export default function Login() {
 
   return (
     <div
+      className="login-shell"
       style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
         minHeight: "100vh",
-        fontFamily: "var(--font-sans)",
       }}
     >
-      {/* Left panel — brand / editorial side */}
+      {/* LEFT — editorial brand panel */}
       <div
         style={{
           backgroundColor: "var(--color-ink)",
-          color: "var(--color-accent-fg)",
+          color: "var(--color-white)",
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
@@ -63,67 +63,125 @@ export default function Login() {
           }}
         />
 
-        {/* Logo */}
+        {/* Top section: logo + headline */}
         <div style={{ position: "relative", zIndex: 1 }}>
+          {/* Logo mark */}
           <div
             style={{
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
-              width: "40px",
-              height: "40px",
+              width: "36px",
+              height: "36px",
               borderRadius: "var(--radius-md)",
-              border: "1px solid rgba(255,255,255,0.15)",
-              fontSize: "18px",
+              border: "1px solid rgba(255,255,255,0.2)",
+              fontSize: "15px",
               fontWeight: "var(--weight-semi)",
-              letterSpacing: "-0.5px",
+              fontFamily: "var(--font-sans)",
               marginBottom: "var(--space-12)",
             }}
           >
             微
           </div>
 
-          <h1
+          {/* Eyebrow */}
+          <p
             style={{
-              fontSize: "clamp(2rem, 3vw, 3rem)",
+              margin: "0 0 var(--space-4) 0",
+              fontSize: "10px",
               fontWeight: "var(--weight-semi)",
-              lineHeight: "var(--leading-tight)",
-              letterSpacing: "-0.03em",
+              fontFamily: "var(--font-sans)",
+              textTransform: "uppercase",
+              letterSpacing: "var(--tracking-wide)",
+              color: "rgba(255,255,255,0.4)",
+            }}
+          >
+            WeChat 公众号工作站
+          </p>
+
+          {/* Massive serif headline */}
+          <h1
+            className="text-display"
+            style={{
+              color: "var(--color-white)",
               margin: 0,
             }}
           >
-            微信公众号
+            批量改写。
             <br />
-            批量改写工具
+            每一篇。
           </h1>
-          <p
-            style={{
-              marginTop: "var(--space-5)",
-              fontSize: "var(--text-base)",
-              color: "rgba(255,255,255,0.5)",
-              lineHeight: "var(--leading-normal)",
-              maxWidth: "28ch",
-            }}
-          >
-            素材抓取、AI 改写、审核报告、一键推送——单人工作站，完整工作流。
-          </p>
         </div>
 
-        {/* Bottom footnote */}
-        <p
-          style={{
-            position: "relative",
-            zIndex: 1,
-            fontSize: "var(--text-xs)",
-            color: "rgba(255,255,255,0.25)",
-            margin: 0,
-          }}
-        >
-          内部工具 · 仅限授权用户
-        </p>
+        {/* Bottom manifesto */}
+        <div style={{ position: "relative", zIndex: 1 }}>
+          <div
+            style={{
+              borderTop: "1px solid rgba(255,255,255,0.1)",
+              paddingTop: "var(--space-6)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "var(--space-4)",
+            }}
+          >
+            {[
+              { n: "01", text: "抓取 — 粘贴链接，自动获取原文" },
+              { n: "02", text: "改写 — AI 重写标题与正文" },
+              { n: "03", text: "推送 — 一键发到微信草稿箱" },
+            ].map((item, i, arr) => (
+              <div key={item.n}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "baseline",
+                    gap: "var(--space-4)",
+                  }}
+                >
+                  <span
+                    className="mono"
+                    style={{
+                      color: "rgba(255,255,255,0.35)",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "var(--text-xs)",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {item.n}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "var(--text-sm)",
+                      color: "rgba(255,255,255,0.6)",
+                    }}
+                  >
+                    {item.text}
+                  </span>
+                </div>
+                {i < arr.length - 1 && (
+                  <div
+                    style={{
+                      marginTop: "var(--space-4)",
+                      height: "1px",
+                      backgroundColor: "rgba(255,255,255,0.07)",
+                    }}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+          <p
+            style={{
+              marginTop: "var(--space-8)",
+              fontSize: "var(--text-xs)",
+              color: "rgba(255,255,255,0.2)",
+            }}
+          >
+            内部工具 · 仅限授权用户
+          </p>
+        </div>
       </div>
 
-      {/* Right panel — form */}
+      {/* RIGHT — form panel */}
       <div
         style={{
           backgroundColor: "var(--color-surface)",
@@ -134,43 +192,25 @@ export default function Login() {
         }}
       >
         <div
+          className="animate-fade-in"
           style={{
             width: "100%",
             maxWidth: "360px",
-            animation: "fade-in 0.3s var(--ease-out) both",
           }}
         >
-          <h2
-            style={{
-              fontSize: "var(--text-xl)",
-              fontWeight: "var(--weight-semi)",
-              color: "var(--color-ink)",
-              letterSpacing: "-0.02em",
-              margin: "0 0 var(--space-2) 0",
-            }}
-          >
+          <h2 className="text-section-title" style={{ marginBottom: "var(--space-2)" }}>
             登录
           </h2>
-          <p
-            style={{
-              fontSize: "var(--text-sm)",
-              color: "var(--color-ink-3)",
-              margin: "0 0 var(--space-8) 0",
-            }}
-          >
+          <p className="text-page-subtitle" style={{ marginBottom: "var(--space-8)" }}>
             使用管理员账号继续
           </p>
 
-          <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-              <label
-                htmlFor="username"
-                style={{
-                  fontSize: "var(--text-sm)",
-                  fontWeight: "var(--weight-medium)",
-                  color: "var(--color-ink-2)",
-                }}
-              >
+          <form
+            onSubmit={submit}
+            style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}
+          >
+            <div>
+              <label htmlFor="username" className="field-label">
                 用户名
               </label>
               <input
@@ -180,32 +220,13 @@ export default function Login() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                style={{
-                  width: "100%",
-                  padding: "var(--space-3) var(--space-4)",
-                  fontSize: "var(--text-base)",
-                  color: "var(--color-ink)",
-                  backgroundColor: "var(--color-white)",
-                  border: "1px solid var(--color-surface-3)",
-                  borderRadius: "var(--radius-md)",
-                  outline: "none",
-                  transition: "border-color var(--dur-fast)",
-                  boxSizing: "border-box",
-                }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = "var(--color-ink)"; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = "var(--color-surface-3)"; }}
+                className="input-base"
+                style={{ padding: "var(--space-3) var(--space-4)" }}
               />
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-              <label
-                htmlFor="password"
-                style={{
-                  fontSize: "var(--text-sm)",
-                  fontWeight: "var(--weight-medium)",
-                  color: "var(--color-ink-2)",
-                }}
-              >
+            <div>
+              <label htmlFor="password" className="field-label">
                 密码
               </label>
               <input
@@ -215,20 +236,8 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                style={{
-                  width: "100%",
-                  padding: "var(--space-3) var(--space-4)",
-                  fontSize: "var(--text-base)",
-                  color: "var(--color-ink)",
-                  backgroundColor: "var(--color-white)",
-                  border: "1px solid var(--color-surface-3)",
-                  borderRadius: "var(--radius-md)",
-                  outline: "none",
-                  transition: "border-color var(--dur-fast)",
-                  boxSizing: "border-box",
-                }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = "var(--color-ink)"; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = "var(--color-surface-3)"; }}
+                className="input-base"
+                style={{ padding: "var(--space-3) var(--space-4)" }}
               />
             </div>
 

@@ -14,6 +14,7 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  font-feature-settings: "ss01", "cv11";
 }
 
 body {
@@ -40,8 +41,8 @@ body {
 
 /* ---- Scrollbar ---- */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -49,64 +50,148 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--color-surface-3);
   border-radius: var(--radius-full);
+  border: 2px solid var(--color-surface);
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-surface-4);
 }
 
-/* ---- Utility animations ---- */
+/* ====================================================================
+   Animations
+   ==================================================================== */
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes slide-up {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes slide-in-right {
   from { opacity: 0; transform: translateX(16px); }
   to   { opacity: 1; transform: translateX(0); }
 }
-
 @keyframes scale-in {
   from { opacity: 0; transform: scale(0.96); }
   to   { opacity: 1; transform: scale(1); }
 }
-
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
-
-.animate-fade-in {
-  animation: fade-in var(--dur-normal) var(--ease-out) both;
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
-.animate-slide-up {
-  animation: slide-up var(--dur-slow) var(--ease-out) both;
+.animate-fade-in   { animation: fade-in   var(--dur-normal) var(--ease-out) both; }
+.animate-slide-up  { animation: slide-up  var(--dur-slow)   var(--ease-out) both; }
+.animate-scale-in  { animation: scale-in  var(--dur-normal) var(--ease-out) both; }
+.animate-spin-slow { animation: spin 1s linear infinite; }
+
+/* ====================================================================
+   Typography utilities — editorial primitives
+   ==================================================================== */
+
+/* Hero display — used for login splash, error pages */
+.text-display {
+  font-family: var(--font-serif);
+  font-size: clamp(3rem, 6vw, var(--text-display));
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-feature-settings: "ss01";
 }
 
-.animate-scale-in {
-  animation: scale-in var(--dur-normal) var(--ease-out) both;
+/* Editorial section title (page H1) */
+.text-page-title {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semi);
+  color: var(--color-ink);
+  letter-spacing: var(--tracking-snug);
+  margin: 0;
+  line-height: var(--leading-tight);
 }
 
-.animate-spin-slow {
-  animation: spin 1s linear infinite;
+.text-page-subtitle {
+  font-size: var(--text-sm);
+  color: var(--color-ink-3);
+  margin: var(--space-1) 0 0 0;
+  line-height: var(--leading-normal);
 }
 
-/* ---- Input base — shared focus / disabled rules for ad-hoc inputs/textareas ---- */
+/* Section heading inside page */
+.text-section-title {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semi);
+  color: var(--color-ink);
+  letter-spacing: var(--tracking-snug);
+  margin: 0;
+  line-height: var(--leading-snug);
+}
+
+/* Editorial title with serif (DraftDetail) */
+.text-editorial-title {
+  font-family: var(--font-serif);
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  font-weight: 500;
+  color: var(--color-ink);
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  font-feature-settings: "ss01";
+}
+
+/* Big editorial number — Hero stat block */
+.text-stat-hero {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(3rem, 7vw, 4.5rem);
+  font-weight: var(--weight-medium);
+  color: var(--color-ink);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.text-stat {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-medium);
+  color: var(--color-ink);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+/* Tabular numerals helper */
+.num-tabular {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+/* Mono inline (URLs, IDs, code) */
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-ink-3);
+}
+
+/* ====================================================================
+   Form primitives — shared by ad-hoc inputs/textareas
+   ==================================================================== */
 .input-base {
   width: 100%;
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-sm);
+  font-family: var(--font-sans);
   color: var(--color-ink);
-  background-color: var(--color-surface-2);
+  background-color: var(--color-white);
   border: 1px solid var(--color-surface-3);
   border-radius: var(--radius-md);
   outline: none;
   box-sizing: border-box;
   transition: border-color var(--dur-fast), background-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+.input-base::placeholder {
+  color: var(--color-ink-4);
 }
 .input-base:hover:not(:disabled):not(:focus) {
   border-color: var(--color-surface-4);
@@ -115,7 +200,7 @@ body {
 .input-base:focus-visible {
   border-color: var(--color-ink);
   background-color: var(--color-white);
-  box-shadow: var(--ring-focus);
+  box-shadow: 0 0 0 3px rgba(10, 10, 10, 0.06);
 }
 .input-base:disabled {
   background-color: var(--color-surface-2);
@@ -123,29 +208,481 @@ body {
   cursor: not-allowed;
 }
 
-/* Tabular numerals helper — apply where digit alignment matters */
-.num-tabular {
-  font-variant-numeric: tabular-nums;
+.input-mono {
   font-family: var(--font-mono);
+  font-size: var(--text-xs);
 }
 
-/* ---- Prose content (DraftDetail preview) ---- */
-.prose-preview {
+.field-label {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-ink-2);
+  margin-bottom: var(--space-2);
+}
+
+.field-hint {
+  display: inline-block;
+  margin-left: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-ink-4);
+  font-weight: var(--weight-normal);
+}
+
+/* ====================================================================
+   Layout primitives
+   ==================================================================== */
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  border-right: 1px solid var(--color-surface-3);
+  background-color: var(--color-surface);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5) var(--space-3) var(--space-4);
+  z-index: 30;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  text-decoration: none;
+  margin-bottom: var(--space-6);
+}
+
+.sidebar-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-ink);
+  color: var(--color-accent-fg);
+  font-size: 13px;
+  font-weight: var(--weight-semi);
+  letter-spacing: -0.5px;
+  flex-shrink: 0;
   font-family: var(--font-sans);
-  font-size: var(--text-base);
+}
+
+.sidebar-brand-text {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+  color: var(--color-ink);
+  letter-spacing: var(--tracking-snug);
+}
+
+.sidebar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sidebar-section + .sidebar-section {
+  margin-top: var(--space-6);
+}
+
+.sidebar-section-label {
+  font-size: 10px;
+  font-weight: var(--weight-semi);
+  color: var(--color-ink-4);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  padding: 0 var(--space-3);
+  margin-bottom: var(--space-2);
+  font-family: var(--font-sans);
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-ink-2);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  transition: background-color var(--dur-fast), color var(--dur-fast);
+  position: relative;
+}
+.sidebar-link:hover {
+  background-color: var(--color-surface-2);
+  color: var(--color-ink);
+}
+.sidebar-link.is-active {
+  background-color: var(--color-surface-2);
+  color: var(--color-ink);
+}
+.sidebar-link.is-active::before {
+  content: "";
+  position: absolute;
+  left: -3px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background-color: var(--color-ink);
+  border-radius: var(--radius-full);
+}
+.sidebar-link svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+.sidebar-link.is-active svg {
+  opacity: 1;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-surface-3);
+}
+
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--color-ink-3);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--dur-fast), color var(--dur-fast);
+  font-family: inherit;
+}
+.sidebar-user:hover {
+  background-color: var(--color-surface-2);
+  color: var(--color-ink);
+}
+
+/* Main content area */
+.app-main {
+  min-width: 0; /* allow shrink in grid */
+  display: flex;
+  flex-direction: column;
+}
+
+.page-shell {
+  width: 100%;
+  max-width: var(--max-content);
+  margin: 0 auto;
+  padding: var(--space-10) var(--space-10) var(--space-20);
+}
+
+.page-shell-narrow {
+  max-width: var(--max-narrow);
+}
+
+.page-shell-wide {
+  max-width: 100%;
+  padding: var(--space-8) var(--space-8) var(--space-12);
+}
+
+/* Editorial page header */
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--color-surface-3);
+}
+.page-header-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.page-header-eyebrow {
+  font-size: 10px;
+  font-weight: var(--weight-semi);
+  color: var(--color-ink-3);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  font-family: var(--font-sans);
+}
+
+/* ====================================================================
+   Editorial table — used on Drafts, Library, Accounts list views
+   ==================================================================== */
+.ed-table {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.ed-table-group + .ed-table-group {
+  margin-top: var(--space-10);
+}
+
+.ed-table-group-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 0 var(--space-3) 0;
+  border-bottom: 1px solid var(--color-ink);
+  margin-bottom: 0;
+}
+
+.ed-table-group-title {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+  color: var(--color-ink);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  margin: 0;
+}
+
+.ed-table-group-count {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-xs);
+  color: var(--color-ink-3);
+  letter-spacing: 0.02em;
+}
+
+.ed-row {
+  display: grid;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-2);
+  border-bottom: 1px solid var(--color-surface-3);
+  transition: background-color var(--dur-fast);
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+}
+.ed-row:hover {
+  background-color: var(--color-surface-2);
+}
+.ed-row:hover .ed-row-arrow {
+  opacity: 1;
+  transform: translateX(2px);
+}
+
+.ed-row-index {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-xs);
+  color: var(--color-ink-4);
+  letter-spacing: 0.02em;
+  width: 32px;
+  flex-shrink: 0;
+}
+
+.ed-row-title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-ink);
+  line-height: var(--leading-snug);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.ed-row-meta {
+  font-size: var(--text-xs);
+  color: var(--color-ink-3);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.ed-row-arrow {
+  opacity: 0;
+  transition: opacity var(--dur-fast), transform var(--dur-fast);
+  color: var(--color-ink-3);
+}
+
+/* ====================================================================
+   Surface — soft elevated panel, replaces ad-hoc card style
+   ==================================================================== */
+.surface-panel {
+  background-color: var(--color-white);
+  border: 1px solid var(--color-surface-3);
+  border-radius: var(--radius-lg);
+}
+.surface-paper {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-surface-3);
+  border-radius: var(--radius-lg);
+}
+
+/* ====================================================================
+   Persistent action bar (shared across DraftDetail / Library / Drafts)
+   ==================================================================== */
+.action-bar {
+  position: fixed;
+  bottom: var(--space-6);
+  left: calc(var(--sidebar-width) + var(--space-6));
+  right: var(--space-6);
+  margin: 0 auto;
+  max-width: 720px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-ink);
+  color: var(--color-accent-fg);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  z-index: 30;
+  animation: slide-up var(--dur-slow) var(--ease-out) both;
+}
+
+/* ====================================================================
+   Prose (DraftDetail preview)
+   ==================================================================== */
+.prose-preview {
+  font-family: var(--font-serif);
+  font-size: var(--text-md);
   line-height: var(--leading-loose);
   color: var(--color-ink);
 }
-.prose-preview h1, .prose-preview h2, .prose-preview h3 {
+.prose-preview h1,
+.prose-preview h2,
+.prose-preview h3 {
+  font-family: var(--font-sans);
   font-weight: var(--weight-semi);
   line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-snug);
   margin-top: 1.5em;
   margin-bottom: 0.5em;
 }
 .prose-preview p {
-  margin-bottom: 1em;
+  margin: 0 0 1em;
 }
 .prose-preview img {
   max-width: 100%;
   border-radius: var(--radius-md);
+  margin: 1.5em 0;
+}
+.prose-preview p:first-of-type::first-letter {
+  font-family: var(--font-serif);
+  float: left;
+  font-size: 3.4em;
+  line-height: 0.85;
+  font-weight: 500;
+  padding: 0.05em 0.1em 0 0;
+  margin-top: 0.05em;
+  color: var(--color-ink);
+}
+
+/* ====================================================================
+   Mobile responsive — max 768px
+   Single-column stack: sidebar becomes a sticky top bar.
+   Full mobile UX is out of scope for this internal tool; this is the
+   minimum acceptable treatment so the app is usable on small screens.
+   ==================================================================== */
+@media (max-width: 768px) {
+  /* App shell: stack vertically */
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Sidebar becomes a sticky horizontal top bar */
+  .sidebar {
+    position: sticky;
+    top: 0;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    border-right: none;
+    border-bottom: 1px solid var(--color-surface-3);
+    width: 100%;
+    z-index: 30;
+    overflow-x: auto;
+  }
+
+  /* Hide section labels and footer in top bar */
+  .sidebar-section-label,
+  .sidebar-footer {
+    display: none;
+  }
+
+  /* Nav sections lay out horizontally */
+  .sidebar-section {
+    flex-direction: row;
+    gap: var(--space-1);
+  }
+
+  /* Remove stacked section spacing */
+  .sidebar-section + .sidebar-section {
+    margin-top: 0;
+  }
+
+  /* Brand stays visible but with less bottom margin */
+  .sidebar-brand {
+    margin-bottom: 0;
+    flex-shrink: 0;
+  }
+
+  /* Hide nav text labels — icons only */
+  .sidebar-link > span:not(.sidebar-brand-text) {
+    display: none;
+  }
+
+  /* Tighten nav link padding for icon-only layout */
+  .sidebar-link {
+    padding: var(--space-2);
+    gap: 0;
+  }
+
+  /* Active indicator: left stripe doesn't make sense in top bar — hide it */
+  .sidebar-link.is-active::before {
+    display: none;
+  }
+
+  /* Page shell padding reduced on small screens */
+  .page-shell,
+  .page-shell-narrow,
+  .page-shell-wide {
+    padding: var(--space-6) var(--space-4) var(--space-12);
+  }
+
+  /* Page header stacks vertically */
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+
+  /* Action bar: reset sidebar-offset, span full width */
+  .action-bar {
+    left: var(--space-3);
+    right: var(--space-3);
+    max-width: none;
+  }
+
+  /* Login: stack the 50/50 grid into a single column */
+  .login-shell {
+    grid-template-columns: 1fr;
+  }
+
+  /* Left dark panel becomes a shorter hero band */
+  .login-shell > div:first-child {
+    min-height: auto;
+    padding: var(--space-8) var(--space-5);
+  }
 }
