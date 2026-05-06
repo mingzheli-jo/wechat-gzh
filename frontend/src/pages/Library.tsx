@@ -1,8 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
-import { Badge, Button, EmptyState, EyebrowLabel, PageSpinner } from "../components/ui";
+import {
+  Badge,
+  Button,
+  EmptyState,
+  EyebrowLabel,
+  HairlineRule,
+  PageSpinner,
+} from "../components/ui";
 
 type LibraryStatus = "pending" | "processing" | "done" | "failed";
 
@@ -29,6 +36,21 @@ const STATUS_LABEL: Record<LibraryStatus, string> = {
   processing: "抓取中",
   done: "完成",
   failed: "失败",
+};
+
+// Display order for the top status bar.
+const STATUS_BAR_ORDER: LibraryStatus[] = [
+  "pending",
+  "processing",
+  "done",
+  "failed",
+];
+
+const EMPTY_STATUS_COUNTS: Record<LibraryStatus, number> = {
+  pending: 0,
+  processing: 0,
+  done: 0,
+  failed: 0,
 };
 
 export default function Library() {
@@ -93,6 +115,20 @@ export default function Library() {
 
   const urlCount = text.split("\n").filter((l) => l.trim()).length;
 
+  const statusCounts = useMemo(() => {
+    if (!data) return EMPTY_STATUS_COUNTS;
+    const counts: Record<LibraryStatus, number> = {
+      pending: 0,
+      processing: 0,
+      done: 0,
+      failed: 0,
+    };
+    for (const item of data) {
+      counts[item.status]++;
+    }
+    return counts;
+  }, [data]);
+
   return (
     <div
       style={{
@@ -102,7 +138,7 @@ export default function Library() {
       }}
     >
       {/* Page header */}
-      <div style={{ marginBottom: "var(--space-8)" }}>
+      <div style={{ marginBottom: "var(--space-5)" }}>
         <h1
           style={{
             fontSize: "var(--text-xl)",
@@ -118,6 +154,73 @@ export default function Library() {
           粘贴微信公众号文章链接，抓取后选择目标公众号批量改写
         </p>
       </div>
+
+      {/* Status bar */}
+      {data && data.length > 0 && (
+        <>
+          <div
+            style={{
+              display: "flex",
+              gap: "var(--space-6)",
+              marginBottom: "var(--space-3)",
+            }}
+          >
+            {STATUS_BAR_ORDER.map((status) => {
+              const count = statusCounts[status];
+              const isProcessing = status === "processing" && count > 0;
+              const isFailedAlert = status === "failed" && count > 0;
+              return (
+                <div key={status} style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ position: "relative", display: "inline-block" }}>
+                    <span
+                      style={{
+                        fontSize: "var(--text-2xl)",
+                        fontWeight: "var(--weight-semi)",
+                        fontFamily: "var(--font-mono)",
+                        fontVariantNumeric: "tabular-nums",
+                        letterSpacing: "-0.02em",
+                        lineHeight: 1,
+                        color: isFailedAlert
+                          ? "var(--color-failed-fg)"
+                          : "var(--color-ink)",
+                        transition: "color var(--dur-normal)",
+                      }}
+                    >
+                      {count}
+                    </span>
+                    {isProcessing && (
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          right: "-8px",
+                          width: "5px",
+                          height: "5px",
+                          borderRadius: "50%",
+                          backgroundColor: "var(--color-processing-fg)",
+                          animation: "pulse 1.2s ease-in-out infinite",
+                        }}
+                      />
+                    )}
+                  </div>
+                  <EyebrowLabel
+                    style={{
+                      marginTop: "var(--space-1)",
+                      color: isFailedAlert
+                        ? "var(--color-failed-fg)"
+                        : "var(--color-ink-3)",
+                    }}
+                  >
+                    {STATUS_LABEL[status]}
+                  </EyebrowLabel>
+                </div>
+              );
+            })}
+          </div>
+          <HairlineRule style={{ marginBottom: "var(--space-6)" }} />
+        </>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "var(--space-6)", alignItems: "start" }}>
         {/* Input panel */}
@@ -252,31 +355,60 @@ export default function Library() {
               description="在左侧粘贴文章链接开始抓取"
             />
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-              {data.map((item, i) => (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                borderTop: "1px solid var(--color-surface-3)",
+              }}
+            >
+              {data.map((item, i) => {
+                const isSelected = selected.has(item.id);
+                return (
                 <div
                   key={item.id}
                   style={{
-                    backgroundColor: "var(--color-white)",
-                    border: `1px solid ${selected.has(item.id) ? "var(--color-ink)" : "var(--color-surface-3)"}`,
-                    borderRadius: "var(--radius-lg)",
+                    position: "relative",
+                    backgroundColor: "transparent",
+                    borderBottom: "1px solid var(--color-surface-3)",
                     padding: "var(--space-4) var(--space-5)",
                     display: "flex",
                     alignItems: "flex-start",
                     gap: "var(--space-4)",
-                    transition: "border-color var(--dur-fast), box-shadow var(--dur-fast)",
+                    transition: "background-color var(--dur-fast)",
                     cursor: item.status === "done" ? "pointer" : "default",
                     animation: `fade-in var(--dur-normal) ${i * 30}ms var(--ease-out) both`,
-                    boxShadow: selected.has(item.id) ? "0 0 0 2px var(--color-ink)" : "none",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor =
+                      "var(--color-surface-2)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "transparent";
                   }}
                   onClick={() => item.status === "done" && toggle(item.id)}
                 >
+                  {/* Selection indicator (left edge bar) */}
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      bottom: 0,
+                      left: 0,
+                      width: "3px",
+                      backgroundColor: "var(--color-ink)",
+                      opacity: isSelected ? 1 : 0,
+                      transition: "opacity var(--dur-fast)",
+                    }}
+                  />
+
                   {/* Checkbox */}
                   <div style={{ paddingTop: "2px", flexShrink: 0 }}>
                     <input
                       type="checkbox"
                       disabled={item.status !== "done"}
-                      checked={selected.has(item.id)}
+                      checked={isSelected}
                       onChange={() => toggle(item.id)}
                       onClick={(e) => e.stopPropagation()}
                       style={{
@@ -375,7 +507,8 @@ export default function Library() {
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
