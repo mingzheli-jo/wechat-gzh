@@ -144,7 +144,9 @@ export default function Drafts() {
     failed: 1,
   });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const deleteConfirmTimer = useRef<number | null>(null);
+  const deleteErrorTimer = useRef<number | null>(null);
 
   function fetchPage(group: GroupKey, page: number): Promise<DraftPage> {
     return api
@@ -179,12 +181,45 @@ export default function Drafts() {
     failed,
   };
 
+  function flashError(msg: string) {
+    setDeleteError(msg);
+    if (deleteErrorTimer.current !== null) {
+      window.clearTimeout(deleteErrorTimer.current);
+    }
+    deleteErrorTimer.current = window.setTimeout(() => {
+      setDeleteError(null);
+      deleteErrorTimer.current = null;
+    }, 6000);
+  }
+
   const deleteDraft = useMutation({
     mutationFn: async (id: string) => api.delete(`/drafts/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["drafts"] });
       qc.invalidateQueries({ queryKey: ["library"] });
       setDeleteConfirmId(null);
+      setDeleteError(null);
+    },
+    onError: (err: unknown) => {
+      setDeleteConfirmId(null);
+      const status =
+        typeof err === "object" && err !== null && "response" in err
+          ? (err as { response?: { status?: number } }).response?.status
+          : undefined;
+      const detail =
+        typeof err === "object" && err !== null && "response" in err
+          ? (err as { response?: { data?: { detail?: unknown } } }).response
+              ?.data?.detail
+          : undefined;
+      const msg =
+        typeof detail === "string"
+          ? detail
+          : status === 409
+          ? "该草稿当前不允许删除"
+          : status === 404
+          ? "草稿不存在或已被删除"
+          : "删除失败，请稍后重试";
+      flashError(`${msg}${status ? ` (${status})` : ""}`);
     },
   });
 
@@ -213,11 +248,14 @@ export default function Drafts() {
     failed.data?.total,
   ]);
 
-  // Cleanup confirm timer on unmount
+  // Cleanup timers on unmount
   useEffect(() => {
     return () => {
       if (deleteConfirmTimer.current !== null) {
         window.clearTimeout(deleteConfirmTimer.current);
+      }
+      if (deleteErrorTimer.current !== null) {
+        window.clearTimeout(deleteErrorTimer.current);
       }
     };
   }, []);
@@ -276,6 +314,43 @@ export default function Drafts() {
           </div>
         )}
       </div>
+
+      {deleteError && (
+        <div
+          role="alert"
+          style={{
+            margin: "0 0 var(--space-4) 0",
+            padding: "var(--space-3) var(--space-4)",
+            backgroundColor: "var(--color-failed)",
+            color: "var(--color-failed-fg)",
+            borderRadius: "var(--radius-md)",
+            fontSize: "var(--text-sm)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "var(--space-3)",
+            animation: "fade-in var(--dur-fast) var(--ease-out) both",
+          }}
+        >
+          <span>{deleteError}</span>
+          <button
+            type="button"
+            onClick={() => setDeleteError(null)}
+            aria-label="关闭"
+            style={{
+              background: "none",
+              border: "none",
+              padding: 0,
+              fontSize: "var(--text-xs)",
+              color: "var(--color-failed-fg)",
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
+          >
+            关闭
+          </button>
+        </div>
+      )}
 
       {allLoading ? (
         <PageSpinner />
