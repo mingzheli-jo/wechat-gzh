@@ -112,6 +112,26 @@ async def delete(
     await service.delete_draft_with_cleanup(db, obj)
 
 
+@router.post("/{draft_id}/rewrite", response_model=DraftOut, status_code=202)
+async def rewrite_again(
+    draft_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_current_username),
+) -> DraftOut:
+    obj = await service.get_draft(db, draft_id)
+    if obj is None:
+        raise HTTPException(404, "Draft not found")
+    if obj.status in (DraftStatus.draft, DraftStatus.reviewing):
+        raise HTTPException(409, "进行中的草稿不能重写")
+    if obj.status == DraftStatus.published_to_wechat:
+        raise HTTPException(409, "已推送至微信的草稿不能重写")
+    obj = await service.reset_for_rewrite(db, obj)
+    from app.tasks.rewrite import run_pipeline
+
+    run_pipeline.delay(str(obj.id), None, None)
+    return DraftOut.model_validate(obj)
+
+
 @router.get("/{draft_id}/report", response_model=ReviewReportOut)
 async def get_report(
     draft_id: uuid.UUID,

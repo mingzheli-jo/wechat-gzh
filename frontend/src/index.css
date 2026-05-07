@@ -570,6 +570,13 @@ body {
 .prose-preview p {
   margin: 0 0 1em;
 }
+.prose-preview strong {
+  font-weight: var(--weight-semi);
+  color: var(--color-ink);
+}
+.prose-preview em {
+  font-style: italic;
+}
 .prose-preview img {
   max-width: 100%;
   border-radius: var(--radius-md);

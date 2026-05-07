@@ -122,6 +122,64 @@ async def update_draft(
     return draft
 
 
+async def reset_for_rewrite(db: AsyncSession, draft: Draft) -> Draft:
+    """Reset a draft so the rewrite pipeline can re-run on the same row.
+
+    Clears generated content (title/content_html/error_msg/cover), the
+    associated ReviewReport, and any Images derived from the previous run.
+    Status is moved back to draft. Caller must verify the draft is in a
+    resettable state (not currently running).
+    """
+    draft_id = draft.id
+
+    image_paths = list(
+        (
+            await db.execute(
+                select(Image.local_path).where(Image.draft_id == draft_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    if draft.review_report_id is not None:
+        await db.execute(
+            update(Draft)
+            .where(Draft.id == draft_id)
+            .values(review_report_id=None)
+        )
+
+    await db.execute(sa_delete(Image).where(Image.draft_id == draft_id))
+    await db.execute(
+        sa_delete(ReviewReport).where(ReviewReport.draft_id == draft_id)
+    )
+    await db.execute(
+        update(Draft)
+        .where(Draft.id == draft_id)
+        .values(
+            title=None,
+            content_html=None,
+            cover_image_id=None,
+            error_msg=None,
+            wechat_media_id=None,
+            wechat_pushed_at=None,
+            status=DraftStatus.draft,
+        )
+    )
+    await db.commit()
+
+    for path in image_paths:
+        if not path:
+            continue
+        try:
+            Path(path).unlink(missing_ok=True)
+        except OSError as exc:
+            logger.warning("failed to unlink image file %s: %s", path, exc)
+
+    await db.refresh(draft)
+    return draft
+
+
 async def delete_draft_with_cleanup(db: AsyncSession, draft: Draft) -> None:
     """Delete a draft and all dependent rows + image files on disk.
 

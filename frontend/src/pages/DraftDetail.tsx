@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import DOMPurify from "dompurify";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
+
+const SANITIZE_CONFIG = {
+  ALLOWED_TAGS: ["p", "strong", "em", "br", "h1", "h2", "h3", "img", "a", "ul", "ol", "li", "blockquote"],
+  ALLOWED_ATTR: ["src", "alt", "href", "title"],
+};
 import {
   Badge,
   Button,
@@ -183,6 +189,15 @@ export default function DraftDetail() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["draft", id] }),
   });
 
+  const rewriteAgain = useMutation({
+    mutationFn: async () => api.post(`/drafts/${id}/rewrite`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["draft", id] });
+      qc.invalidateQueries({ queryKey: ["draft-report", id] });
+      qc.invalidateQueries({ queryKey: ["draft-images", id] });
+    },
+  });
+
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit");
@@ -219,6 +234,7 @@ export default function DraftDetail() {
   const isPublished = detail.data?.status === "published_to_wechat";
   const canPublish = detail.data?.status === "reviewed";
   const charCount = wordCount(body);
+  const safeBody = useMemo(() => DOMPurify.sanitize(body, SANITIZE_CONFIG), [body]);
 
   if (!detail.data) return <PageSpinner />;
 
@@ -384,7 +400,7 @@ export default function DraftDetail() {
                   border: "1px solid var(--color-surface-3)",
                   borderRadius: "var(--radius-md)",
                 }}
-                dangerouslySetInnerHTML={{ __html: body }}
+                dangerouslySetInnerHTML={{ __html: safeBody }}
               />
             )}
           </div>
@@ -613,6 +629,30 @@ export default function DraftDetail() {
           }}
         >
           {save.isPending ? "保存中…" : "保存草稿"}
+        </Button>
+
+        <Button
+          variant="secondary"
+          onClick={() => {
+            if (window.confirm("将清空当前标题、正文、评审报告和图片,重新改写。是否继续?")) {
+              rewriteAgain.mutate();
+            }
+          }}
+          disabled={
+            rewriteAgain.isPending ||
+            detail.data.status === "draft" ||
+            detail.data.status === "reviewing" ||
+            detail.data.status === "published_to_wechat"
+          }
+          loading={rewriteAgain.isPending}
+          style={{
+            backgroundColor: "rgba(255,255,255,0.12)",
+            color: "var(--color-white)",
+            border: "1px solid rgba(255,255,255,0.2)",
+            flexShrink: 0,
+          }}
+        >
+          {rewriteAgain.isPending ? "重写中…" : "重新改写"}
         </Button>
 
         <Button
