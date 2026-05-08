@@ -59,7 +59,17 @@ def build_content_messages(
         [
             SYSTEM_BASE,
             _account_block(category, style_desc),
-            "你现在的任务是改写文章【正文】，输出 HTML 格式（仅段落 <p> 和强调 <strong>）。",
+            (
+                "你现在的任务是改写文章【正文】，输出 Markdown 格式。\n"
+                "可使用的结构：\n"
+                "- `## 一、标题`（二级标题，建议用「一、二、三」中文编号）\n"
+                "- `### 1. 子标题`（三级标题，建议用阿拉伯数字编号）\n"
+                "- `> 导语：xxx`（开篇导语用引用块包裹）\n"
+                "- `**关键短语**`（关键句加粗强调）\n"
+                "- `- 列表项` 或 `1. 列表项`（要点用列表）\n"
+                "- 普通段落直接换行书写，无需手动加标签。\n"
+                "请合理使用以上结构，避免大段无层次的纯文本。"
+            ),
         ]
     )
     user_parts: list[str] = [f"【正文改写要求】{account_content_prompt}"]
@@ -67,7 +77,7 @@ def build_content_messages(
         user_parts.append(f"【本次额外要求】{override}")
     user_parts.append("【原文】")
     user_parts.append(truncated)
-    user_parts.append("请直接输出改写后的 HTML，不要包裹在 ```html 代码块中。")
+    user_parts.append("请直接输出改写后的 Markdown 正文，不要包裹在 ```markdown 代码块中。")
     return [
         Message(role="system", content=system),
         Message(role="user", content="\n".join(user_parts)),

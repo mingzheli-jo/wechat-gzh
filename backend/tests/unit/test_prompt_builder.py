@@ -28,3 +28,22 @@ def test_build_content_truncates_long_input():
     )
     user_msg = next(m for m in msgs if m.role == "user")
     assert len(user_msg.content) <= 8500
+
+
+def test_build_content_requests_markdown_format():
+    msgs = build_content_messages(
+        account_content_prompt="保持原意改写",
+        category="职场",
+        style_desc="",
+        original_content="一些原文",
+        override=None,
+    )
+    system_msg = next(m for m in msgs if m.role == "system")
+    user_msg = next(m for m in msgs if m.role == "user")
+    assert "Markdown" in system_msg.content
+    assert "## " in system_msg.content
+    assert "> 导语" in system_msg.content
+    assert "**" in system_msg.content
+    assert "Markdown" in user_msg.content
+    assert "<p>" not in system_msg.content
+    assert "<strong>" not in system_msg.content
