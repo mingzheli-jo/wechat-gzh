@@ -82,6 +82,18 @@ async def _rewrite_with_session(
         return
 
     try:
+        original_text = item.original_content_text or ""
+        logger.info(
+            "rewrite start: draft_id=%s library_item_id=%s source_url=%s "
+            "title=%r content_len=%d content_head=%r",
+            draft.id,
+            item.id,
+            (item.source_url or "")[:80],
+            (item.original_title or "")[:50],
+            len(original_text),
+            original_text[:80],
+        )
+
         title_msgs = build_title_messages(
             account_title_prompt=account.title_prompt,
             category=account.category,
