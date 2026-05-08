@@ -25,7 +25,20 @@ type Detail = {
   content_html: string | null;
   status: string;
   review_report_id: string | null;
+  error_msg: string | null;
 };
+
+type PushBanner =
+  | { kind: "info"; msg: string }
+  | { kind: "success"; msg: string }
+  | { kind: "error"; msg: string };
+
+function extractErrorDetail(err: unknown): string | null {
+  if (typeof err !== "object" || err === null) return null;
+  const data = (err as { response?: { data?: { detail?: unknown } } }).response
+    ?.data?.detail;
+  return typeof data === "string" ? data : null;
+}
 
 type DimBlock = {
   score?: number;
@@ -157,9 +170,13 @@ export default function DraftDetail() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
 
+  const [pushBanner, setPushBanner] = useState<PushBanner | null>(null);
+  const [pollingForPublish, setPollingForPublish] = useState(false);
+
   const detail = useQuery({
     queryKey: ["draft", id],
     queryFn: async () => (await api.get<Detail>(`/drafts/${id}`)).data,
+    refetchInterval: pollingForPublish ? 2000 : false,
   });
 
   const report = useQuery({
@@ -186,7 +203,24 @@ export default function DraftDetail() {
 
   const publish = useMutation({
     mutationFn: async () => api.post(`/drafts/${id}/publish-to-wechat`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["draft", id] }),
+    onMutate: () => {
+      setPushBanner({
+        kind: "info",
+        msg: "已加入推送队列,正在上传图片并推送至微信草稿箱…",
+      });
+    },
+    onSuccess: () => {
+      setPollingForPublish(true);
+      qc.invalidateQueries({ queryKey: ["draft", id] });
+    },
+    onError: (err: unknown) => {
+      setPollingForPublish(false);
+      const detail = extractErrorDetail(err);
+      setPushBanner({
+        kind: "error",
+        msg: `推送请求失败:${detail ?? "请稍后重试"}`,
+      });
+    },
   });
 
   const rewriteAgain = useMutation({
@@ -220,6 +254,28 @@ export default function DraftDetail() {
       setBody(detail.data.content_html ?? "");
     }
   }, [detail.data]);
+
+  // While polling after a publish click, react to terminal status changes.
+  useEffect(() => {
+    if (!pollingForPublish || !detail.data) return;
+    const status = detail.data.status;
+    if (status === "published_to_wechat") {
+      setPushBanner({
+        kind: "success",
+        msg: "✓ 已成功推送至微信草稿箱,可在公众号后台查看",
+      });
+      setPollingForPublish(false);
+      const t = window.setTimeout(() => setPushBanner(null), 6000);
+      return () => window.clearTimeout(t);
+    }
+    if (status === "failed") {
+      setPushBanner({
+        kind: "error",
+        msg: `推送失败:${detail.data.error_msg ?? "未知错误,请查看后端日志"}`,
+      });
+      setPollingForPublish(false);
+    }
+  }, [pollingForPublish, detail.data]);
 
   const save = useMutation({
     mutationFn: async () =>
@@ -605,6 +661,75 @@ export default function DraftDetail() {
           </div>
         </div>
       </div>
+
+      {/* Push-to-wechat status banner — sits above the action bar */}
+      {pushBanner && (
+        <div
+          role="alert"
+          style={{
+            position: "fixed",
+            bottom: "calc(var(--space-6) + 80px)",
+            left: "calc(var(--sidebar-width) + var(--space-6))",
+            right: "var(--space-6)",
+            margin: "0 auto",
+            maxWidth: "720px",
+            padding: "var(--space-3) var(--space-4)",
+            borderRadius: "var(--radius-lg)",
+            boxShadow: "var(--shadow-md)",
+            backgroundColor:
+              pushBanner.kind === "success"
+                ? "var(--color-done)"
+                : pushBanner.kind === "error"
+                ? "var(--color-failed)"
+                : "var(--color-ink)",
+            color:
+              pushBanner.kind === "success"
+                ? "var(--color-done-fg)"
+                : pushBanner.kind === "error"
+                ? "var(--color-failed-fg)"
+                : "var(--color-accent-fg)",
+            display: "flex",
+            alignItems: "center",
+            gap: "var(--space-3)",
+            fontSize: "var(--text-sm)",
+            zIndex: 31,
+            animation: "slide-up var(--dur-slow) var(--ease-out) both",
+          }}
+        >
+          {pushBanner.kind === "info" && (
+            <span
+              aria-hidden
+              style={{
+                width: 12,
+                height: 12,
+                borderRadius: "50%",
+                border: "2px solid currentColor",
+                borderTopColor: "transparent",
+                animation: "spin 0.8s linear infinite",
+                flexShrink: 0,
+              }}
+            />
+          )}
+          <span style={{ flex: 1 }}>{pushBanner.msg}</span>
+          <button
+            type="button"
+            aria-label="关闭"
+            onClick={() => setPushBanner(null)}
+            style={{
+              background: "none",
+              border: "none",
+              color: "inherit",
+              cursor: "pointer",
+              fontSize: "var(--text-xs)",
+              textDecoration: "underline",
+              padding: 0,
+              flexShrink: 0,
+            }}
+          >
+            关闭
+          </button>
+        </div>
+      )}
 
       {/* Persistent bottom action bar */}
       <div className="action-bar">
