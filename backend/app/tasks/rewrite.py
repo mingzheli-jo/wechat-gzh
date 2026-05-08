@@ -25,6 +25,7 @@ from app.rewriter.prompt_builder import (
     build_content_messages,
     build_title_messages,
 )
+from app.rewriter.renderer import render_markdown
 from app.tasks.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
@@ -115,7 +116,7 @@ async def _rewrite_with_session(
             temperature=0.7,
             max_tokens=4000,
         )
-        draft.content_html = content_result.content
+        draft.content_html = render_markdown(content_result.content)
         draft.status = DraftStatus.reviewing
         await session.commit()
         await record_usage(
