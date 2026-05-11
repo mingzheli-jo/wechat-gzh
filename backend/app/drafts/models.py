@@ -50,6 +50,9 @@ class Draft(Base):
         nullable=True,
     )
     error_msg: Mapped[str | None] = mapped_column(Text, nullable=True)
+    regenerate_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
     wechat_media_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     wechat_pushed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
