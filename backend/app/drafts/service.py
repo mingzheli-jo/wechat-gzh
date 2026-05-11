@@ -2,7 +2,8 @@ import logging
 import uuid
 from pathlib import Path
 
-from sqlalchemy import delete as sa_delete, func, select, update
+from sqlalchemy import delete as sa_delete
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.drafts.models import Draft, DraftStatus, ReviewReport
@@ -164,6 +165,7 @@ async def reset_for_rewrite(db: AsyncSession, draft: Draft) -> Draft:
             wechat_media_id=None,
             wechat_pushed_at=None,
             status=DraftStatus.draft,
+            regenerate_count=Draft.regenerate_count + 1,
         )
     )
     await db.commit()
