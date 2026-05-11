@@ -79,7 +79,24 @@ async def get_one(
     obj = await service.get_draft(db, draft_id)
     if obj is None:
         raise HTTPException(404, "Draft not found")
-    return DraftDetail.model_validate(obj)
+    settings = get_settings()
+    return DraftDetail.model_validate(
+        {
+            "id": obj.id,
+            "library_item_id": obj.library_item_id,
+            "account_id": obj.account_id,
+            "title": obj.title,
+            "status": obj.status,
+            "error_msg": obj.error_msg,
+            "review_report_id": obj.review_report_id,
+            "wechat_pushed_at": obj.wechat_pushed_at,
+            "created_at": obj.created_at,
+            "regenerate_count": obj.regenerate_count,
+            "content_html": obj.content_html,
+            "cover_image_id": obj.cover_image_id,
+            "max_regenerations": settings.draft_max_regenerations,
+        }
+    )
 
 
 @router.patch("/{draft_id}", response_model=DraftDetail)
@@ -95,7 +112,24 @@ async def update(
     obj = await service.update_draft(
         db, obj, title=payload.title, content_html=payload.content_html
     )
-    return DraftDetail.model_validate(obj)
+    settings = get_settings()
+    return DraftDetail.model_validate(
+        {
+            "id": obj.id,
+            "library_item_id": obj.library_item_id,
+            "account_id": obj.account_id,
+            "title": obj.title,
+            "status": obj.status,
+            "error_msg": obj.error_msg,
+            "review_report_id": obj.review_report_id,
+            "wechat_pushed_at": obj.wechat_pushed_at,
+            "created_at": obj.created_at,
+            "regenerate_count": obj.regenerate_count,
+            "content_html": obj.content_html,
+            "cover_image_id": obj.cover_image_id,
+            "max_regenerations": settings.draft_max_regenerations,
+        }
+    )
 
 
 @router.delete("/{draft_id}", status_code=204)

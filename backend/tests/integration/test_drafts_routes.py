@@ -99,3 +99,25 @@ async def test_rewrite_again_increments_counter(auth_client, db_session):
 
     await db_session.refresh(draft)
     assert draft.regenerate_count == 3
+
+
+async def test_rewrite_response_exposes_regenerate_count(auth_client, db_session):
+    draft = await _seed(
+        db_session, status=DraftStatus.reviewed, regenerate_count=1
+    )
+    r = await auth_client.post(f"/api/drafts/{draft.id}/rewrite")
+    assert r.status_code == 202
+    body = r.json()
+    assert "regenerate_count" in body
+    assert body["regenerate_count"] == 2
+
+
+async def test_draft_detail_exposes_max_regenerations(auth_client, db_session):
+    draft = await _seed(
+        db_session, status=DraftStatus.reviewed, regenerate_count=0
+    )
+    r = await auth_client.get(f"/api/drafts/{draft.id}")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["regenerate_count"] == 0
+    assert body["max_regenerations"] == 5
