@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     celery_worker_concurrency: int = 4
     image_storage_dir: str = "/data/images"
     rewrite_batch_max: int = Field(default=20, ge=1, le=200)
+    draft_max_regenerations: int = Field(default=5, ge=1, le=50)
 
 
 @lru_cache
