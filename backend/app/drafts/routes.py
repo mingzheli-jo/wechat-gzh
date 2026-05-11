@@ -125,6 +125,12 @@ async def rewrite_again(
         raise HTTPException(409, "进行中的草稿不能重写")
     if obj.status == DraftStatus.published_to_wechat:
         raise HTTPException(409, "已推送至微信的草稿不能重写")
+    settings = get_settings()
+    if obj.regenerate_count >= settings.draft_max_regenerations:
+        raise HTTPException(
+            409,
+            f"已达 {settings.draft_max_regenerations} 次改写上限",
+        )
     obj = await service.reset_for_rewrite(db, obj)
     from app.tasks.rewrite import run_pipeline
 
