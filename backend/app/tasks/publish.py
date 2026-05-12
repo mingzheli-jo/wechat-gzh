@@ -37,13 +37,19 @@ async def _do_publish(draft_id: uuid.UUID) -> None:
         ).scalars().all()
 
         cover = next((i for i in images if i.is_cover), None)
-        if (
-            cover is None
-            or cover.status != ImageStatus.uploaded
-            or not cover.wechat_media_id
-        ):
+        draft_cover_ready = (
+            cover is not None
+            and cover.status == ImageStatus.uploaded
+            and bool(cover.wechat_media_id)
+        )
+        if draft_cover_ready:
+            assert cover is not None and cover.wechat_media_id is not None
+            thumb_media_id: str = cover.wechat_media_id
+        elif account.default_thumb_media_id:
+            thumb_media_id = account.default_thumb_media_id
+        else:
             draft.status = DraftStatus.failed
-            draft.error_msg = "封面图片未上传"
+            draft.error_msg = "本草稿无封面图片，且账号未配置默认封面"
             await session.commit()
             return
         non_cover_pending = [
@@ -69,7 +75,7 @@ async def _do_publish(draft_id: uuid.UUID) -> None:
                     access_token=token,
                     title=draft.title or "",
                     content_html=draft.content_html or "",
-                    thumb_media_id=cover.wechat_media_id,
+                    thumb_media_id=thumb_media_id,
                     author=account.name,
                 )
             except WeChatDraftError as exc:
@@ -84,7 +90,7 @@ async def _do_publish(draft_id: uuid.UUID) -> None:
                         access_token=token,
                         title=draft.title or "",
                         content_html=draft.content_html or "",
-                        thumb_media_id=cover.wechat_media_id,
+                        thumb_media_id=thumb_media_id,
                         author=account.name,
                     )
                 else:
