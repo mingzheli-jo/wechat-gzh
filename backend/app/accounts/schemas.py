@@ -35,6 +35,7 @@ class AccountOut(BaseModel):
     title_prompt: str
     content_prompt: str
     style_desc: str
+    default_thumb_media_id: str | None
     is_active: bool
     created_at: datetime
     updated_at: datetime

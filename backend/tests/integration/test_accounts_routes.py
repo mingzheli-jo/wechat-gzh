@@ -73,3 +73,19 @@ async def test_routes_require_auth(app):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         assert (await client.get("/api/accounts")).status_code == 401
+
+
+async def test_account_response_exposes_default_thumb_media_id(auth_client):
+    r = await auth_client.post(
+        "/api/accounts",
+        json={
+            "name": "default-cover-test",
+            "wechat_appid": "wx_dc",
+            "wechat_secret": "s",
+            "category": "职场",
+        },
+    )
+    assert r.status_code == 201
+    body = r.json()
+    assert "default_thumb_media_id" in body
+    assert body["default_thumb_media_id"] is None
