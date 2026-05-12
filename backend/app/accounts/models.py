@@ -24,6 +24,9 @@ class Account(Base):
     title_prompt: Mapped[str] = mapped_column(Text, nullable=False, default="")
     content_prompt: Mapped[str] = mapped_column(Text, nullable=False, default="")
     style_desc: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    default_thumb_media_id: Mapped[str | None] = mapped_column(
+        String(200), nullable=True
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
