@@ -89,3 +89,114 @@ async def test_account_response_exposes_default_thumb_media_id(auth_client):
     body = r.json()
     assert "default_thumb_media_id" in body
     assert body["default_thumb_media_id"] is None
+
+
+async def test_upload_default_cover_success(auth_client, monkeypatch):
+    from app.accounts import routes as accounts_routes
+
+    async def fake_token(*, account_id, appid, secret, force_refresh=False):
+        return "fake_token"
+
+    async def fake_upload(*, access_token, file_path):
+        return {"media_id": "test_media_xyz", "url": "https://x/y.jpg"}
+
+    monkeypatch.setattr(accounts_routes, "get_access_token", fake_token)
+    monkeypatch.setattr(accounts_routes, "upload_image", fake_upload)
+
+    create = await auth_client.post(
+        "/api/accounts",
+        json={
+            "name": "uploader",
+            "wechat_appid": "wx_up",
+            "wechat_secret": "s",
+            "category": "职场",
+        },
+    )
+    account_id = create.json()["id"]
+    files = {"file": ("cover.jpg", b"\xff\xd8\xff\xe0fake_jpeg", "image/jpeg")}
+    r = await auth_client.post(
+        f"/api/accounts/{account_id}/default-cover", files=files
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["default_thumb_media_id"] == "test_media_xyz"
+
+
+async def test_upload_default_cover_rejects_oversize(auth_client):
+    create = await auth_client.post(
+        "/api/accounts",
+        json={
+            "name": "big",
+            "wechat_appid": "wx_big",
+            "wechat_secret": "s",
+            "category": "职场",
+        },
+    )
+    account_id = create.json()["id"]
+    files = {
+        "file": ("big.jpg", b"x" * (11 * 1024 * 1024), "image/jpeg"),
+    }
+    r = await auth_client.post(
+        f"/api/accounts/{account_id}/default-cover", files=files
+    )
+    assert r.status_code == 413
+
+
+async def test_upload_default_cover_rejects_non_image(auth_client):
+    create = await auth_client.post(
+        "/api/accounts",
+        json={
+            "name": "txt",
+            "wechat_appid": "wx_txt",
+            "wechat_secret": "s",
+            "category": "职场",
+        },
+    )
+    account_id = create.json()["id"]
+    files = {"file": ("evil.txt", b"hello", "text/plain")}
+    r = await auth_client.post(
+        f"/api/accounts/{account_id}/default-cover", files=files
+    )
+    assert r.status_code == 415
+
+
+async def test_upload_default_cover_404_when_account_missing(auth_client):
+    import uuid as _uuid
+
+    files = {"file": ("cover.jpg", b"data", "image/jpeg")}
+    r = await auth_client.post(
+        f"/api/accounts/{_uuid.uuid4()}/default-cover", files=files
+    )
+    assert r.status_code == 404
+
+
+async def test_clear_default_cover(auth_client, monkeypatch):
+    from app.accounts import routes as accounts_routes
+
+    async def fake_token(*, account_id, appid, secret, force_refresh=False):
+        return "fake_token"
+
+    async def fake_upload(*, access_token, file_path):
+        return {"media_id": "abc123", "url": ""}
+
+    monkeypatch.setattr(accounts_routes, "get_access_token", fake_token)
+    monkeypatch.setattr(accounts_routes, "upload_image", fake_upload)
+
+    create = await auth_client.post(
+        "/api/accounts",
+        json={
+            "name": "clearable",
+            "wechat_appid": "wx_cl",
+            "wechat_secret": "s",
+            "category": "职场",
+        },
+    )
+    account_id = create.json()["id"]
+    files = {"file": ("c.jpg", b"\xff\xd8\xff\xe0", "image/jpeg")}
+    up = await auth_client.post(
+        f"/api/accounts/{account_id}/default-cover", files=files
+    )
+    assert up.json()["default_thumb_media_id"] == "abc123"
+
+    r = await auth_client.delete(f"/api/accounts/{account_id}/default-cover")
+    assert r.status_code == 200
+    assert r.json()["default_thumb_media_id"] is None
