@@ -11,6 +11,7 @@ type Draft = {
   error_msg: string | null;
   review_report_id: string | null;
   created_at: string;
+  source_url: string | null;
 };
 
 type DraftPage = {
@@ -431,8 +432,8 @@ export default function Drafts() {
                           }}
                           style={{
                             gridTemplateColumns: g.canDelete
-                              ? "32px 1fr 90px 90px 56px 16px"
-                              : "32px 1fr 90px 90px 16px",
+                              ? "32px 1fr 90px 90px 28px 56px 16px"
+                              : "32px 1fr 90px 90px 28px 16px",
                             cursor: "pointer",
                             animationDelay: `${localI * 30}ms`,
                             animation: `fade-in var(--dur-normal) ${
@@ -482,6 +483,62 @@ export default function Drafts() {
                             >
                               {STATUS_LABEL[draft.status] ?? draft.status}
                             </Badge>
+                          </div>
+
+                          {/* Original source URL external link */}
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              display: "flex",
+                              justifyContent: "center",
+                              alignItems: "center",
+                            }}
+                          >
+                            {draft.source_url ? (
+                              <a
+                                href={draft.source_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="查看原文"
+                                aria-label="查看原文"
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  width: "24px",
+                                  height: "24px",
+                                  borderRadius: "var(--radius-sm)",
+                                  color: "var(--color-ink-3)",
+                                  transition: "color var(--dur-fast), background var(--dur-fast)",
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.color = "var(--color-ink)";
+                                  e.currentTarget.style.background =
+                                    "var(--color-surface-2)";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.color = "var(--color-ink-3)";
+                                  e.currentTarget.style.background = "transparent";
+                                }}
+                              >
+                                <svg
+                                  width="14"
+                                  height="14"
+                                  viewBox="0 0 16 16"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <path d="M7 3H3v10h10V9" />
+                                  <path d="M9 2h5v5" />
+                                  <path d="M14 2L7 9" />
+                                </svg>
+                              </a>
+                            ) : (
+                              <span aria-hidden style={{ width: "24px" }} />
+                            )}
                           </div>
 
                           {/* Delete button — only on canDelete groups */}

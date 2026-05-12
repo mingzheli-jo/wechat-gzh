@@ -28,6 +28,10 @@ type Detail = {
   error_msg: string | null;
   regenerate_count: number;
   max_regenerations: number;
+  source_url: string | null;
+  original_title: string | null;
+  original_author: string | null;
+  original_content_text: string | null;
 };
 
 type PushBanner =
@@ -237,6 +241,7 @@ export default function DraftDetail() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit");
+  const [showOriginal, setShowOriginal] = useState(false);
   const [expandedDims, setExpandedDims] = useState<Set<DimKey>>(new Set());
   const [savedIndicator, setSavedIndicator] = useState(false);
 
@@ -368,11 +373,120 @@ export default function DraftDetail() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr 360px",
-          gap: "var(--space-8)",
+          gridTemplateColumns: showOriginal
+            ? "minmax(0, 0.4fr) minmax(0, 0.6fr) 360px"
+            : "1fr 360px",
+          gap: "var(--space-6)",
           alignItems: "start",
         }}
       >
+        {/* LEFT-LEFT — original article panel (slides in when showOriginal) */}
+        {showOriginal && (
+          <aside
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "var(--space-3)",
+              padding: "var(--space-5)",
+              background: "var(--color-surface-2)",
+              borderRadius: "var(--radius-md)",
+              minHeight: "60vh",
+              maxHeight: "calc(100vh - 200px)",
+              overflow: "auto",
+              position: "sticky",
+              top: "var(--space-4)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <EyebrowLabel>原文</EyebrowLabel>
+              <button
+                type="button"
+                onClick={() => setShowOriginal(false)}
+                aria-label="收起原文"
+                title="收起原文"
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--color-ink-3)",
+                  fontSize: "var(--text-sm)",
+                  padding: "var(--space-1)",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <h2
+              className="text-section-title"
+              style={{
+                margin: 0,
+                fontSize: "var(--text-lg)",
+                lineHeight: "var(--leading-snug)",
+              }}
+            >
+              {detail.data.original_title ?? "（原标题未抓取）"}
+            </h2>
+            <div
+              style={{
+                display: "flex",
+                gap: "var(--space-3)",
+                alignItems: "center",
+                fontSize: "var(--text-xs)",
+                color: "var(--color-ink-3)",
+                flexWrap: "wrap",
+              }}
+            >
+              {detail.data.original_author && (
+                <span>{detail.data.original_author}</span>
+              )}
+              {detail.data.source_url && (
+                <a
+                  href={detail.data.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "var(--color-ink-2)",
+                    textDecoration: "underline",
+                    textDecorationStyle: "dotted",
+                    textUnderlineOffset: "2px",
+                  }}
+                >
+                  原文链接 ↗
+                </a>
+              )}
+            </div>
+            <div
+              style={{
+                fontSize: "var(--text-base)",
+                lineHeight: "var(--leading-loose)",
+                color: "var(--color-ink-2)",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+              }}
+            >
+              {detail.data.original_content_text ? (
+                detail.data.original_content_text
+                  .split(/\n{2,}/)
+                  .filter((p) => p.trim().length > 0)
+                  .map((para, i) => (
+                    <p
+                      key={i}
+                      style={{
+                        margin: "0 0 var(--space-3) 0",
+                      }}
+                    >
+                      {para}
+                    </p>
+                  ))
+              ) : (
+                <p style={{ color: "var(--color-ink-3)", fontStyle: "italic" }}>
+                  （原文正文未抓取）
+                </p>
+              )}
+            </div>
+          </aside>
+        )}
+
         {/* LEFT — editor */}
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
           {/* Editorial title input */}
@@ -407,6 +521,7 @@ export default function DraftDetail() {
             <div
               style={{
                 display: "flex",
+                alignItems: "center",
                 borderBottom: "1px solid var(--color-surface-3)",
                 marginBottom: "var(--space-4)",
               }}
@@ -431,6 +546,25 @@ export default function DraftDetail() {
                   {tab === "edit" ? "编辑" : "预览"}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => setShowOriginal((v) => !v)}
+                style={{
+                  marginLeft: "auto",
+                  padding: "var(--space-1) var(--space-3)",
+                  fontSize: "var(--text-xs)",
+                  color: showOriginal ? "var(--color-ink)" : "var(--color-ink-3)",
+                  background: showOriginal ? "var(--color-surface-2)" : "none",
+                  border: "1px solid var(--color-surface-3)",
+                  borderRadius: "var(--radius-sm)",
+                  cursor: "pointer",
+                  marginBottom: "var(--space-1)",
+                  transition: "all var(--dur-fast)",
+                }}
+                title={showOriginal ? "收起原文" : "对比原文"}
+              >
+                {showOriginal ? "✕ 隐藏原文" : "« 对比原文"}
+              </button>
             </div>
 
             {activeTab === "edit" ? (
