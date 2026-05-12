@@ -565,7 +565,7 @@ git commit -m "feat(drafts): expose regenerate_count and max_regenerations in AP
 **Files:**
 - Create: `backend/alembic/versions/<生成的 hash>_add_regenerate_count_to_drafts.py`
 
-- [ ] **Step 1: 用 alembic 生成迁移文件骨架**
+- [x] **Step 1: 用 alembic 生成迁移文件骨架**
 
 ```bash
 cd backend
@@ -580,7 +580,7 @@ uv run alembic revision -m "add regenerate count to drafts"
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5433/dummy uv run alembic revision -m "add regenerate count to drafts"
 ```
 
-- [ ] **Step 2: 编辑生成的文件**
+- [x] **Step 2: 编辑生成的文件**
 
 把 `<hash>_add_regenerate_count_to_drafts.py` 的 `upgrade` / `downgrade` 替换为：
 
@@ -626,7 +626,7 @@ def downgrade() -> None:
 - 若 alembic 生成时自动填了别的 `down_revision`（应该是 `b3a7f1c2e8d9`，因为是当前 head），不用改；否则强制改成 `b3a7f1c2e8d9`。
 - 不需要 `import app.db.encryption`（不涉及 EncryptedString）。
 
-- [ ] **Step 3: 验证 alembic 迁移链完整**
+- [x] **Step 3: 验证 alembic 迁移链完整**
 
 ```bash
 uv run alembic history
@@ -634,7 +634,7 @@ uv run alembic history
 
 预期：能看到链尾是新生成的 revision，前一个是 `b3a7f1c2e8d9`。
 
-- [ ] **Step 4: 在真实 Postgres 上跑 upgrade（可选但推荐）**
+- [~] **Step 4: 在真实 Postgres 上跑 upgrade（可选但推荐）** _(skipped — docker entrypoint 会跑)_
 
 如果本机有可用 Postgres：
 
@@ -646,7 +646,7 @@ DATABASE_URL=postgresql+asyncpg://app:app@localhost:5432/wechat uv run alembic u
 
 如果不方便跑，跳过此 step；docker compose 启动时 entrypoint 会自动跑 upgrade。
 
-- [ ] **Step 5: lint / 回归**
+- [x] **Step 5: lint / 回归** _(75 passed)_
 
 ```bash
 uv run ruff check alembic/versions/
@@ -655,7 +655,7 @@ uv run pytest
 
 预期：全部通过。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交** _(commit `96fd4b0`)_
 
 ```bash
 git add backend/alembic/versions/
@@ -669,7 +669,7 @@ git commit -m "feat(drafts): alembic migration for regenerate_count column"
 **Files:**
 - Modify: `frontend/src/pages/DraftDetail.tsx`
 
-- [ ] **Step 1: 扩展本地 `Detail` type（约第 22–29 行）**
+- [x] **Step 1: 扩展本地 `Detail` type（约第 22–29 行）**
 
 把现有的：
 
@@ -699,7 +699,7 @@ type Detail = {
 };
 ```
 
-- [ ] **Step 2: 修改「重新改写」按钮（约第 759–781 行）**
+- [x] **Step 2: 修改「重新改写」按钮（约第 759–781 行）**
 
 把整个 `<Button variant="secondary" onClick={...}>...重新改写</Button>` 块替换为：
 
@@ -732,7 +732,7 @@ type Detail = {
         </Button>
 ```
 
-- [ ] **Step 3: 跑前端类型检查 + 构建**
+- [x] **Step 3: 跑前端类型检查 + 构建** _(tsc + vite clean)_
 
 ```bash
 cd frontend
@@ -741,11 +741,11 @@ pnpm build
 
 预期：tsc + vite 都干净通过。
 
-- [ ] **Step 4: （可选）本地手动验证**
+- [~] **Step 4: （可选）本地手动验证** _(skipped — 部署后冒烟)_
 
 如果当前有 dev server 在跑：打开任意一个 status=reviewed 的草稿，按钮文案应是 `重新改写 (0/5)`。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交** _(commit `aad6d18`)_
 
 ```bash
 git add frontend/src/pages/DraftDetail.tsx
@@ -756,7 +756,7 @@ git commit -m "feat(drafts): show regenerate count and disable at cap in UI"
 
 ## Task 8: 最终回归 + 部署提示
 
-- [ ] **Step 1: 后端完整回归**
+- [x] **Step 1: 后端完整回归** _(ruff clean, mypy 改动文件 clean, pytest 75 passed)_
 
 ```bash
 cd backend
@@ -767,7 +767,7 @@ uv run pytest
 
 预期：三条都干净通过。
 
-- [ ] **Step 2: 前端完整构建**
+- [x] **Step 2: 前端完整构建** _(JS 410 KB, gzip 127 KB)_
 
 ```bash
 cd frontend
@@ -776,7 +776,7 @@ pnpm build
 
 预期：通过。
 
-- [ ] **Step 3: 检查 git 日志**
+- [x] **Step 3: 检查 git 日志** _(7 feature + 1 refactor commits since `e16a2ac`)_
 
 ```bash
 git log --oneline -10
