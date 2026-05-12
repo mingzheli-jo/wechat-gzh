@@ -295,7 +295,11 @@ export default function DraftDetail() {
   });
 
   const isPublished = detail.data?.status === "published_to_wechat";
-  const canPublish = detail.data?.status === "reviewed";
+  const isPublishFailure =
+    detail.data?.status === "failed" &&
+    Boolean(detail.data?.review_report_id);
+  const canPublish =
+    detail.data?.status === "reviewed" || isPublishFailure;
   const charCount = wordCount(body);
   const safeBody = useMemo(() => DOMPurify.sanitize(body, SANITIZE_CONFIG), [body]);
 
@@ -932,6 +936,8 @@ export default function DraftDetail() {
             ? "推送中…"
             : !canPublish
             ? "等待审核完成"
+            : isPublishFailure
+            ? "重新推送到微信草稿箱"
             : "推送到微信草稿箱"}
         </Button>
       </div>

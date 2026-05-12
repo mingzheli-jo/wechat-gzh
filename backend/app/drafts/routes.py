@@ -238,6 +238,18 @@ async def publish(
     obj = await service.get_draft(db, draft_id)
     if obj is None:
         raise HTTPException(404, "Draft not found")
+    if obj.status in (DraftStatus.draft, DraftStatus.reviewing):
+        raise HTTPException(409, "草稿仍在生成或审核中，无法推送")
+    if obj.status == DraftStatus.failed and obj.review_report_id is None:
+        raise HTTPException(409, "草稿审核未完成，无法推送")
+    # Reset failed-but-reviewed drafts so polling on the next attempt doesn't
+    # immediately flag the stale `failed` state as a fresh failure.
+    if obj.status == DraftStatus.failed:
+        obj.status = DraftStatus.reviewed
+        obj.error_msg = None
+        await db.commit()
+        await db.refresh(obj)
+
     from app.tasks.images import process_draft_images
     from app.tasks.publish import publish_draft
 

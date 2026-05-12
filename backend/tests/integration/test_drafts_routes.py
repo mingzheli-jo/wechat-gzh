@@ -21,6 +21,23 @@ def app(db_session, monkeypatch):
         raising=False,
     )
 
+    # Stub Celery dispatch for publish path so apply_async doesn't connect to broker.
+    from app.tasks import images as images_module
+    from app.tasks import publish as publish_module
+
+    monkeypatch.setattr(
+        images_module.process_draft_images,
+        "apply_async",
+        lambda *a, **k: None,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        publish_module.publish_draft,
+        "si",
+        lambda *a, **k: None,
+        raising=False,
+    )
+
     app = create_app()
 
     async def _override():
@@ -170,3 +187,61 @@ async def test_draft_list_exposes_source_url(auth_client, db_session):
     assert len(items) >= 1
     assert all("source_url" in d for d in items)
     assert any(d["source_url"] and d["source_url"].startswith("https://") for d in items)
+
+
+async def _seed_with_report(
+    db_session, *, status: DraftStatus
+) -> Draft:
+    """Seed a draft with a review report (i.e. review completed)."""
+    from app.drafts.models import ReviewReport
+
+    draft = await _seed(db_session, status=status)
+    report = ReviewReport(
+        draft_id=draft.id,
+        compliance={"score": 80},
+        originality={"score": 75},
+        quality={"score": 85},
+        clickbait={"score": 70},
+        overall_score=77,
+    )
+    db_session.add(report)
+    await db_session.commit()
+    await db_session.refresh(report)
+    draft.review_report_id = report.id
+    if status == DraftStatus.failed:
+        draft.error_msg = "封面图片未上传"
+    await db_session.commit()
+    await db_session.refresh(draft)
+    return draft
+
+
+async def test_publish_retries_failed_draft_with_completed_review(
+    auth_client, db_session
+):
+    draft = await _seed_with_report(db_session, status=DraftStatus.failed)
+    r = await auth_client.post(f"/api/drafts/{draft.id}/publish-to-wechat")
+    assert r.status_code == 202
+
+    await db_session.refresh(draft)
+    assert draft.status == DraftStatus.reviewed
+    assert draft.error_msg is None
+
+
+async def test_publish_rejects_failed_draft_without_review(
+    auth_client, db_session
+):
+    # status=failed but no review_report → failure was during rewrite/review,
+    # cannot publish.
+    draft = await _seed(db_session, status=DraftStatus.failed)
+    r = await auth_client.post(f"/api/drafts/{draft.id}/publish-to-wechat")
+    assert r.status_code == 409
+    assert "审核" in r.json()["detail"]
+
+
+async def test_publish_allows_reviewed_draft(auth_client, db_session):
+    draft = await _seed_with_report(db_session, status=DraftStatus.reviewed)
+    r = await auth_client.post(f"/api/drafts/{draft.id}/publish-to-wechat")
+    assert r.status_code == 202
+
+    await db_session.refresh(draft)
+    assert draft.status == DraftStatus.reviewed  # unchanged
