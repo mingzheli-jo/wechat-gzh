@@ -26,6 +26,8 @@ type Detail = {
   status: string;
   review_report_id: string | null;
   error_msg: string | null;
+  regenerate_count: number;
+  max_regenerations: number;
 };
 
 type PushBanner =
@@ -767,7 +769,8 @@ export default function DraftDetail() {
             rewriteAgain.isPending ||
             detail.data.status === "draft" ||
             detail.data.status === "reviewing" ||
-            detail.data.status === "published_to_wechat"
+            detail.data.status === "published_to_wechat" ||
+            detail.data.regenerate_count >= detail.data.max_regenerations
           }
           loading={rewriteAgain.isPending}
           style={{
@@ -777,7 +780,9 @@ export default function DraftDetail() {
             flexShrink: 0,
           }}
         >
-          {rewriteAgain.isPending ? "重写中…" : "重新改写"}
+          {rewriteAgain.isPending
+            ? "重写中…"
+            : `重新改写 (${detail.data.regenerate_count}/${detail.data.max_regenerations})`}
         </Button>
 
         <Button
