@@ -1,14 +1,15 @@
 import uuid
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
 from app.auth.dependencies import get_current_username
 from app.config import get_settings
 from app.drafts import service
-from app.drafts.models import DraftStatus
+from app.drafts.models import Draft, DraftStatus
 from app.drafts.schemas import (
     DraftDetail,
     DraftEdit,
@@ -17,10 +18,37 @@ from app.drafts.schemas import (
     ReviewReportOut,
     RewriteTriggerRequest,
 )
+from app.library.models import LibraryItem
 
 router = APIRouter(prefix="/drafts", tags=["drafts"])
 
 DraftGroup = Literal["active", "done", "published", "failed"]
+
+
+def _draft_to_out_dict(draft: Draft, *, source_url: str | None) -> dict[str, Any]:
+    return {
+        "id": draft.id,
+        "library_item_id": draft.library_item_id,
+        "account_id": draft.account_id,
+        "title": draft.title,
+        "status": draft.status,
+        "error_msg": draft.error_msg,
+        "review_report_id": draft.review_report_id,
+        "wechat_pushed_at": draft.wechat_pushed_at,
+        "created_at": draft.created_at,
+        "regenerate_count": draft.regenerate_count,
+        "source_url": source_url,
+    }
+
+
+async def _load_library_item(
+    db: AsyncSession, library_item_id: uuid.UUID
+) -> LibraryItem | None:
+    return (
+        await db.execute(
+            select(LibraryItem).where(LibraryItem.id == library_item_id)
+        )
+    ).scalar_one_or_none()
 
 
 @router.post("/rewrite", response_model=list[DraftOut], status_code=202)
@@ -64,8 +92,24 @@ async def list_all(
         page=page,
         page_size=page_size,
     )
+    library_ids = {d.library_item_id for d in items}
+    url_map: dict[uuid.UUID, str | None] = {}
+    if library_ids:
+        rows = (
+            await db.execute(
+                select(LibraryItem.id, LibraryItem.source_url).where(
+                    LibraryItem.id.in_(library_ids)
+                )
+            )
+        ).all()
+        url_map = {row.id: row.source_url for row in rows}
     return DraftListPage(
-        items=[DraftOut.model_validate(r) for r in items],
+        items=[
+            DraftOut.model_validate(
+                _draft_to_out_dict(d, source_url=url_map.get(d.library_item_id))
+            )
+            for d in items
+        ],
         total=total,
     )
 
@@ -79,22 +123,21 @@ async def get_one(
     obj = await service.get_draft(db, draft_id)
     if obj is None:
         raise HTTPException(404, "Draft not found")
+    item = await _load_library_item(db, obj.library_item_id)
     settings = get_settings()
     return DraftDetail.model_validate(
         {
-            "id": obj.id,
-            "library_item_id": obj.library_item_id,
-            "account_id": obj.account_id,
-            "title": obj.title,
-            "status": obj.status,
-            "error_msg": obj.error_msg,
-            "review_report_id": obj.review_report_id,
-            "wechat_pushed_at": obj.wechat_pushed_at,
-            "created_at": obj.created_at,
-            "regenerate_count": obj.regenerate_count,
+            **_draft_to_out_dict(
+                obj, source_url=item.source_url if item else None
+            ),
             "content_html": obj.content_html,
             "cover_image_id": obj.cover_image_id,
             "max_regenerations": settings.draft_max_regenerations,
+            "original_title": item.original_title if item else None,
+            "original_author": item.original_author if item else None,
+            "original_content_text": (
+                item.original_content_text if item else None
+            ),
         }
     )
 
@@ -112,22 +155,21 @@ async def update(
     obj = await service.update_draft(
         db, obj, title=payload.title, content_html=payload.content_html
     )
+    item = await _load_library_item(db, obj.library_item_id)
     settings = get_settings()
     return DraftDetail.model_validate(
         {
-            "id": obj.id,
-            "library_item_id": obj.library_item_id,
-            "account_id": obj.account_id,
-            "title": obj.title,
-            "status": obj.status,
-            "error_msg": obj.error_msg,
-            "review_report_id": obj.review_report_id,
-            "wechat_pushed_at": obj.wechat_pushed_at,
-            "created_at": obj.created_at,
-            "regenerate_count": obj.regenerate_count,
+            **_draft_to_out_dict(
+                obj, source_url=item.source_url if item else None
+            ),
             "content_html": obj.content_html,
             "cover_image_id": obj.cover_image_id,
             "max_regenerations": settings.draft_max_regenerations,
+            "original_title": item.original_title if item else None,
+            "original_author": item.original_author if item else None,
+            "original_content_text": (
+                item.original_content_text if item else None
+            ),
         }
     )
 

@@ -26,12 +26,16 @@ class DraftOut(BaseModel):
     wechat_pushed_at: datetime | None
     created_at: datetime
     regenerate_count: int
+    source_url: str | None = None
 
 
 class DraftDetail(DraftOut):
     content_html: str | None
     cover_image_id: uuid.UUID | None
     max_regenerations: int
+    original_title: str | None = None
+    original_author: str | None = None
+    original_content_text: str | None = None
 
 
 class ReviewReportOut(BaseModel):

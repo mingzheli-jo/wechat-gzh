@@ -121,3 +121,52 @@ async def test_draft_detail_exposes_max_regenerations(auth_client, db_session):
     body = r.json()
     assert body["regenerate_count"] == 0
     assert body["max_regenerations"] == 5
+
+
+async def test_draft_detail_exposes_original_fields(auth_client, db_session):
+    item = LibraryItem(
+        source_url="https://mp.weixin.qq.com/s/originalUrl",
+        original_title="原标题 A",
+        original_author="原作者 X",
+        original_content_text="第一段\n\n第二段\n\n第三段",
+        status=LibraryStatus.done,
+    )
+    account = Account(
+        name="A",
+        wechat_appid="wx",
+        wechat_secret="s",
+        category="职场",
+        title_prompt="t",
+        content_prompt="c",
+    )
+    db_session.add_all([item, account])
+    await db_session.commit()
+    await db_session.refresh(item)
+    await db_session.refresh(account)
+    draft = Draft(
+        library_item_id=item.id,
+        account_id=account.id,
+        status=DraftStatus.reviewed,
+        title="改后",
+        content_html="<p>改后正文</p>",
+    )
+    db_session.add(draft)
+    await db_session.commit()
+
+    r = await auth_client.get(f"/api/drafts/{draft.id}")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["source_url"] == "https://mp.weixin.qq.com/s/originalUrl"
+    assert body["original_title"] == "原标题 A"
+    assert body["original_author"] == "原作者 X"
+    assert body["original_content_text"] == "第一段\n\n第二段\n\n第三段"
+
+
+async def test_draft_list_exposes_source_url(auth_client, db_session):
+    await _seed(db_session, status=DraftStatus.reviewed)
+    r = await auth_client.get("/api/drafts")
+    assert r.status_code == 200
+    items = r.json()["items"]
+    assert len(items) >= 1
+    assert all("source_url" in d for d in items)
+    assert any(d["source_url"] and d["source_url"].startswith("https://") for d in items)
