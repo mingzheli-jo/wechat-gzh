@@ -21,6 +21,7 @@ type Account = {
   title_prompt: string | null;
   content_prompt: string | null;
   style_desc: string | null;
+  default_thumb_media_id: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -104,6 +105,145 @@ function ToggleSwitch({ checked, onChange, disabled }: ToggleSwitchProps) {
   );
 }
 
+// ---- Default Cover Section (edit mode only) ----
+
+interface DefaultCoverSectionProps {
+  accountId: string;
+  currentMediaId: string | null;
+  onChanged: (newMediaId: string | null) => void;
+}
+
+function DefaultCoverSection({
+  accountId,
+  currentMediaId,
+  onChanged,
+}: DefaultCoverSectionProps) {
+  const [file, setFile] = useState<File | null>(null);
+  const [feedback, setFeedback] = useState<
+    { kind: "success" | "error"; msg: string } | null
+  >(null);
+
+  const upload = useMutation({
+    mutationFn: async () => {
+      if (!file) throw new Error("未选择文件");
+      const fd = new FormData();
+      fd.append("file", file);
+      return api.post<Account>(`/accounts/${accountId}/default-cover`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+    },
+    onSuccess: (resp) => {
+      onChanged(resp.data.default_thumb_media_id);
+      setFile(null);
+      setFeedback({ kind: "success", msg: "上传成功" });
+    },
+    onError: (err: unknown) => {
+      const detail =
+        (err as { response?: { data?: { detail?: string } } }).response?.data
+          ?.detail ?? "上传失败";
+      setFeedback({ kind: "error", msg: detail });
+    },
+  });
+
+  const clear = useMutation({
+    mutationFn: async () =>
+      api.delete<Account>(`/accounts/${accountId}/default-cover`),
+    onSuccess: () => {
+      onChanged(null);
+      setFeedback({ kind: "success", msg: "已清除默认封面" });
+    },
+  });
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "var(--space-2)",
+        padding: "var(--space-3)",
+        backgroundColor: "var(--color-surface-2)",
+        borderRadius: "var(--radius-md)",
+      }}
+    >
+      <EyebrowLabel>默认封面图（无图片时兜底）</EyebrowLabel>
+      <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--color-ink-3)" }}>
+        微信草稿箱要求每篇文章必须有封面。当原文无图或上传失败时，将使用此默认封面。
+      </p>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "var(--space-2)",
+          fontSize: "var(--text-sm)",
+        }}
+      >
+        <span style={{ color: "var(--color-ink-2)" }}>状态：</span>
+        {currentMediaId ? (
+          <>
+            <Badge variant="outline">已配置</Badge>
+            <span className="mono" style={{ fontSize: "var(--text-xs)", color: "var(--color-ink-3)" }}>
+              {currentMediaId.slice(0, 12)}…
+            </span>
+          </>
+        ) : (
+          <Badge variant="outline">未配置</Badge>
+        )}
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/bmp"
+          onChange={(e) => {
+            const f = e.target.files?.[0] ?? null;
+            setFile(f);
+            setFeedback(null);
+          }}
+          style={{ fontSize: "var(--text-sm)" }}
+        />
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => upload.mutate()}
+          disabled={!file || upload.isPending}
+          loading={upload.isPending}
+        >
+          {upload.isPending ? "上传中…" : "上传到微信"}
+        </Button>
+        {currentMediaId && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => clear.mutate()}
+            disabled={clear.isPending}
+            style={{ color: "var(--color-failed-fg)" }}
+          >
+            {clear.isPending ? "清除中…" : "清除"}
+          </Button>
+        )}
+      </div>
+
+      {feedback && (
+        <p
+          style={{
+            margin: 0,
+            fontSize: "var(--text-xs)",
+            color:
+              feedback.kind === "success"
+                ? "var(--color-done-fg)"
+                : "var(--color-failed-fg)",
+          }}
+        >
+          {feedback.msg}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ---- Account Form Modal ----
 
 interface AccountFormModalProps {
@@ -129,6 +269,9 @@ function AccountFormModal({ open, onClose, initial, onSaved }: AccountFormModalP
       : EMPTY_FORM
   );
   const [errors, setErrors] = useState<FormErrors>({});
+  const [currentMediaId, setCurrentMediaId] = useState<string | null>(
+    initial?.default_thumb_media_id ?? null
+  );
 
   function set(field: keyof AccountFormData, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -254,6 +397,17 @@ function AccountFormModal({ open, onClose, initial, onSaved }: AccountFormModalP
           onChange={(e) => set("style_desc", e.target.value)}
           placeholder="可选：一句话描述目标风格，例如「轻松口语化，适合宝妈」"
         />
+
+        {isEdit && initial && (
+          <DefaultCoverSection
+            accountId={initial.id}
+            currentMediaId={currentMediaId}
+            onChanged={(newId) => {
+              setCurrentMediaId(newId);
+              onSaved();
+            }}
+          />
+        )}
 
         {save.isError && (
           <div
