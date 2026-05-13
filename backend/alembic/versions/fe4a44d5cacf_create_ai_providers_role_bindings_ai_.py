@@ -5,18 +5,19 @@ Revises: d0f2ca49469f
 Create Date: 2026-05-01 16:46:20.190154
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
 import app.db.encryption  # noqa: F401
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = 'fe4a44d5cacf'
-down_revision: Union[str, Sequence[str], None] = 'd0f2ca49469f'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = 'd0f2ca49469f'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

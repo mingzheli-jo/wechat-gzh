@@ -36,6 +36,8 @@ class AccountOut(BaseModel):
     content_prompt: str
     style_desc: str
     default_thumb_media_id: str | None
+    character_reference_path: str | None = None
+    character_reference_updated_at: datetime | None = None
     is_active: bool
     created_at: datetime
     updated_at: datetime

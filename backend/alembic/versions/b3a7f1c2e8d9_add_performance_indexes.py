@@ -24,17 +24,17 @@ Adds three indexes to keep list/grouping queries fast as data grows:
       rows, makes that subquery a cheap index scan instead of a full
       drafts seq scan.
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "b3a7f1c2e8d9"
-down_revision: Union[str, Sequence[str], None] = "d04b636b2aab"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "d04b636b2aab"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
