@@ -29,6 +29,14 @@ class Settings(BaseSettings):
     rewrite_batch_max: int = Field(default=20, ge=1, le=200)
     draft_max_regenerations: int = Field(default=5, ge=1, le=50)
 
+    # AI 图像生成（豆包 Seedream）
+    doubao_api_key: str = ""
+    doubao_base_url: str = "https://ark.cn-beijing.volces.com/api/v3"
+    doubao_image_model: str = "doubao-seedream-3-0-t2i-250415"
+
+    # AI 图像合成
+    image_posts_font_path: str = "app/image_composer/fonts/SourceHanSansSC-Bold.otf"
+
 
 @lru_cache
 def get_settings() -> Settings:
