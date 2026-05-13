@@ -9,6 +9,7 @@ from app.accounts import service
 from app.accounts.schemas import AccountIn, AccountOut, AccountUpdate
 from app.api.deps import get_db
 from app.auth.dependencies import get_current_username
+from app.config import get_settings
 from app.wechat.material import WeChatMaterialError, upload_image
 from app.wechat.token import get_access_token
 
@@ -131,6 +132,67 @@ async def clear_default_cover(
     if obj is None:
         raise HTTPException(404, "Account not found")
     obj.default_thumb_media_id = None
+    await db.commit()
+    await db.refresh(obj)
+    return AccountOut.model_validate(obj)
+
+
+_ALLOWED_CHAR_REF_MIME = {
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+}
+
+
+@router.post("/{account_id}/character-reference", response_model=AccountOut)
+async def upload_character_reference(
+    account_id: uuid.UUID,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_current_username),
+) -> AccountOut:
+    from datetime import UTC, datetime
+
+    obj = await service.get_account(db, account_id)
+    if obj is None:
+        raise HTTPException(404, "Account not found")
+    if file.content_type not in _ALLOWED_CHAR_REF_MIME:
+        raise HTTPException(415, f"不支持的图片格式: {file.content_type}")
+    content = await file.read()
+    if not content:
+        raise HTTPException(400, "上传文件为空")
+    if len(content) > _MAX_COVER_BYTES:
+        raise HTTPException(
+            413, f"图片超过 {_MAX_COVER_BYTES // 1024 // 1024}MB 限制"
+        )
+
+    settings = get_settings()
+    storage_dir = Path(settings.image_storage_dir) / "accounts" / str(obj.id)
+    storage_dir.mkdir(parents=True, exist_ok=True)
+    suffix = Path(file.filename or "char.png").suffix or ".png"
+    target = storage_dir / f"character{suffix}"
+    target.write_bytes(content)
+
+    obj.character_reference_path = str(target)
+    obj.character_reference_updated_at = datetime.now(UTC)
+    await db.commit()
+    await db.refresh(obj)
+    return AccountOut.model_validate(obj)
+
+
+@router.delete("/{account_id}/character-reference", response_model=AccountOut)
+async def clear_character_reference(
+    account_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_current_username),
+) -> AccountOut:
+    obj = await service.get_account(db, account_id)
+    if obj is None:
+        raise HTTPException(404, "Account not found")
+    if obj.character_reference_path:
+        Path(obj.character_reference_path).unlink(missing_ok=True)
+    obj.character_reference_path = None
+    obj.character_reference_updated_at = None
     await db.commit()
     await db.refresh(obj)
     return AccountOut.model_validate(obj)

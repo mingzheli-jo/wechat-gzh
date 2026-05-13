@@ -200,3 +200,73 @@ async def test_clear_default_cover(auth_client, monkeypatch):
     r = await auth_client.delete(f"/api/accounts/{account_id}/default-cover")
     assert r.status_code == 200
     assert r.json()["default_thumb_media_id"] is None
+
+
+async def test_upload_character_reference_success(auth_client, tmp_path, monkeypatch):
+    monkeypatch.setenv("IMAGE_STORAGE_DIR", str(tmp_path))
+    from app.config import get_settings
+    get_settings.cache_clear()
+
+    create = await auth_client.post(
+        "/api/accounts",
+        json={
+            "name": "char-test",
+            "wechat_appid": "wx_ch",
+            "wechat_secret": "s",
+            "category": "职场",
+        },
+    )
+    account_id = create.json()["id"]
+    files = {"file": ("char.png", b"\x89PNG\r\n\x1a\nfake", "image/png")}
+    r = await auth_client.post(
+        f"/api/accounts/{account_id}/character-reference", files=files
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["character_reference_path"]
+    assert body["character_reference_updated_at"]
+
+
+async def test_upload_character_reference_rejects_oversize(auth_client):
+    create = await auth_client.post(
+        "/api/accounts",
+        json={"name": "big", "wechat_appid": "wx", "wechat_secret": "s", "category": "x"},
+    )
+    account_id = create.json()["id"]
+    files = {"file": ("big.png", b"x" * (11 * 1024 * 1024), "image/png")}
+    r = await auth_client.post(
+        f"/api/accounts/{account_id}/character-reference", files=files
+    )
+    assert r.status_code == 413
+
+
+async def test_upload_character_reference_rejects_non_image(auth_client):
+    create = await auth_client.post(
+        "/api/accounts",
+        json={"name": "txt", "wechat_appid": "wx", "wechat_secret": "s", "category": "x"},
+    )
+    account_id = create.json()["id"]
+    files = {"file": ("evil.txt", b"hello", "text/plain")}
+    r = await auth_client.post(
+        f"/api/accounts/{account_id}/character-reference", files=files
+    )
+    assert r.status_code == 415
+
+
+async def test_clear_character_reference(auth_client, tmp_path, monkeypatch):
+    monkeypatch.setenv("IMAGE_STORAGE_DIR", str(tmp_path))
+    from app.config import get_settings
+    get_settings.cache_clear()
+
+    create = await auth_client.post(
+        "/api/accounts",
+        json={"name": "clear", "wechat_appid": "wx", "wechat_secret": "s", "category": "x"},
+    )
+    account_id = create.json()["id"]
+    files = {"file": ("c.png", b"\x89PNG\r\n\x1a\nfake", "image/png")}
+    await auth_client.post(
+        f"/api/accounts/{account_id}/character-reference", files=files
+    )
+    r = await auth_client.delete(f"/api/accounts/{account_id}/character-reference")
+    assert r.status_code == 200
+    assert r.json()["character_reference_path"] is None
