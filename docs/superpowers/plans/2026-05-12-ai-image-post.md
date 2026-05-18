@@ -2227,7 +2227,7 @@ git commit -m "feat(image-posts): Celery compose_and_push task (Pillow + WeChat 
 - Modify: `backend/app/api/router.py`
 - Create: `backend/tests/integration/test_image_posts_routes.py`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `backend/tests/integration/test_image_posts_routes.py`：
 
@@ -2410,7 +2410,7 @@ async def test_delete_image_post(auth_client, db_session, tmp_path):
     assert r2.status_code == 404
 ```
 
-- [ ] **Step 2: 跑确认 FAIL**
+- [x] **Step 2: 跑确认 FAIL**
 
 ```bash
 cd backend
@@ -2419,7 +2419,7 @@ uv run pytest tests/integration/test_image_posts_routes.py -v
 
 预期：404（路由未注册）或 ImportError。
 
-- [ ] **Step 3: 实现路由**
+- [x] **Step 3: 实现路由**
 
 `backend/app/image_posts/routes.py`：
 
@@ -2579,7 +2579,7 @@ async def delete(
     await db.commit()
 ```
 
-- [ ] **Step 4: 注册路由到 router.py**
+- [x] **Step 4: 注册路由到 router.py**
 
 `backend/app/api/router.py`，在现有 `include_router` 列表后追加：
 
@@ -2588,7 +2588,7 @@ from app.image_posts.routes import router as image_posts_router
 api_router.include_router(image_posts_router)
 ```
 
-- [ ] **Step 5: 跑测试确认 PASS**
+- [x] **Step 5: 跑测试确认 PASS**
 
 ```bash
 uv run pytest tests/integration/test_image_posts_routes.py -v
@@ -2596,14 +2596,14 @@ uv run pytest tests/integration/test_image_posts_routes.py -v
 
 预期：6 条 PASS。
 
-- [ ] **Step 6: lint / type**
+- [x] **Step 6: lint / type**
 
 ```bash
 uv run ruff check app/image_posts/routes.py app/api/router.py tests/integration/test_image_posts_routes.py
 uv run mypy app/image_posts/routes.py
 ```
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 git add backend/app/image_posts/routes.py backend/app/api/router.py \
