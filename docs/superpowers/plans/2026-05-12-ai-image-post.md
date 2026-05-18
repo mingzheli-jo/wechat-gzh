@@ -2874,14 +2874,14 @@ git commit -m "feat(image-posts): regenerate-captions/regenerate/push-to-wechat 
 - Modify: `backend/app/api/router.py`
 - Create: `backend/tests/integration/test_image_assets_routes.py`
 
-- [ ] **Step 1: 创建包**
+- [x] **Step 1: 创建包**
 
 ```bash
 mkdir -p backend/app/image_assets
 echo '"""Image asset library routes."""' > backend/app/image_assets/__init__.py
 ```
 
-- [ ] **Step 2: 写失败测试**
+- [x] **Step 2: 写失败测试**
 
 `backend/tests/integration/test_image_assets_routes.py`：
 
@@ -2970,7 +2970,7 @@ async def test_get_image_asset_file(auth_client, db_session, tmp_path):
     assert len(r.content) > 0
 ```
 
-- [ ] **Step 3: 跑确认 FAIL**
+- [x] **Step 3: 跑确认 FAIL**
 
 ```bash
 cd backend
@@ -2979,7 +2979,7 @@ uv run pytest tests/integration/test_image_assets_routes.py -v
 
 预期：404（路由未注册）。
 
-- [ ] **Step 4: 实现路由**
+- [x] **Step 4: 实现路由**
 
 `backend/app/image_assets/routes.py`：
 
@@ -3043,7 +3043,7 @@ async def get_file(
     return FileResponse(p, media_type="image/png")
 ```
 
-- [ ] **Step 5: 注册路由**
+- [x] **Step 5: 注册路由**
 
 `backend/app/api/router.py`：
 
@@ -3052,7 +3052,7 @@ from app.image_assets.routes import router as image_assets_router
 api_router.include_router(image_assets_router)
 ```
 
-- [ ] **Step 6: 跑测试确认 PASS**
+- [x] **Step 6: 跑测试确认 PASS**
 
 ```bash
 uv run pytest tests/integration/test_image_assets_routes.py -v
@@ -3060,14 +3060,14 @@ uv run pytest tests/integration/test_image_assets_routes.py -v
 
 预期：3 条 PASS。
 
-- [ ] **Step 7: lint / type**
+- [x] **Step 7: lint / type**
 
 ```bash
 uv run ruff check app/image_assets/ app/api/router.py
 uv run mypy app/image_assets/routes.py
 ```
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```bash
 git add backend/app/image_assets/ backend/app/api/router.py \
