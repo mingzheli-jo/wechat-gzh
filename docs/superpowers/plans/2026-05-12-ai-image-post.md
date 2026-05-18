@@ -4564,7 +4564,7 @@ git commit -m "feat(image-posts): record AI usage for image-gen + caption-gen"
 
 ## Task 24: 最终回归 + push + 部署提示
 
-- [ ] **Step 1: 后端完整**
+- [x] **Step 1: 后端完整**
 
 ```bash
 cd backend
@@ -4575,7 +4575,7 @@ uv run pytest
 
 预期：全套通过；总计应该 ~100 条测试（86 baseline + 14 新增）。
 
-- [ ] **Step 2: 前端构建**
+- [x] **Step 2: 前端构建**
 
 ```bash
 cd frontend
@@ -4584,7 +4584,7 @@ pnpm build
 
 预期：tsc + vite 都干净，gzip 总大小 < 200 KB（新 Canvas 组件 + 字体只在浏览器需要时加载）。
 
-- [ ] **Step 3: 检查 git 日志**
+- [x] **Step 3: 检查 git 日志**
 
 ```bash
 git log --oneline | head -25
@@ -4592,13 +4592,13 @@ git log --oneline | head -25
 
 应该看到 ~22-24 条本次 feature 的 commits。
 
-- [ ] **Step 4: push**
+- [x] **Step 4: push**
 
 ```bash
 git push origin master
 ```
 
-- [ ] **Step 5: 部署提示（用户在服务器执行）**
+- [x] **Step 5: 部署提示（用户在服务器执行）**
 
 ```bash
 git pull
