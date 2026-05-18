@@ -213,7 +213,7 @@ async def _compose_and_push_with_session(
         return
 
     asset_ids = post.asset_ids or []
-    asset_uuid_list = [uuid.UUID(str(a)) for a in asset_ids]
+    asset_uuid_list = [uuid.UUID(a) for a in asset_ids]
     assets = (await session.execute(
         select(ImageAsset).where(ImageAsset.id.in_(asset_uuid_list))
     )).scalars().all()
@@ -230,7 +230,11 @@ async def _compose_and_push_with_session(
         output_dir = Path(settings.image_storage_dir) / "image_posts"
         output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / f"{post.id}.png"
-        compose(
+        # Pillow compose is sync + CPU-bound; offload so we don't block the
+        # event loop (cheap insurance even though Celery's asyncio.run loop
+        # has nothing else to do).
+        await asyncio.to_thread(
+            compose,
             template=template,
             panel_paths=ordered_paths,
             captions=post.captions or [],
@@ -238,6 +242,8 @@ async def _compose_and_push_with_session(
             font_path=Path(settings.image_posts_font_path),
             output_path=output_path,
         )
+        # Persist composed_image_path BEFORE upload so a retry from `failed`
+        # can skip recompose and reuse the rendered file on disk.
         post.composed_image_path = str(output_path)
         post.status = ImagePostStatus.pushing
         await session.commit()
