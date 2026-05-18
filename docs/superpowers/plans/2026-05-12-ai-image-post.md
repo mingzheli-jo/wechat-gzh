@@ -3990,7 +3990,7 @@ git push origin master
 - Create: `frontend/src/components/image-posts/AssetPickerModal.tsx`
 - Modify: `frontend/src/components/image-posts/ImagePostFormModal.tsx`
 
-- [ ] **Step 1: 写 AssetPickerModal**
+- [x] **Step 1: 写 AssetPickerModal**
 
 `frontend/src/components/image-posts/AssetPickerModal.tsx`：
 
@@ -4101,7 +4101,7 @@ export function AssetPickerModal({ open, onClose, accountId, needCount, onConfir
 }
 ```
 
-- [ ] **Step 2: 集成到 ImagePostFormModal**
+- [x] **Step 2: 集成到 ImagePostFormModal**
 
 修改 `ImagePostFormModal.tsx`：
 
@@ -4204,14 +4204,14 @@ disabled={
 }
 ```
 
-- [ ] **Step 3: build**
+- [x] **Step 3: build**
 
 ```bash
 cd frontend
 pnpm build
 ```
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add frontend/src/components/image-posts/
