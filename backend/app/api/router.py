@@ -9,6 +9,7 @@ from app.image_assets.routes import router as image_assets_router
 from app.image_posts.routes import router as image_posts_router
 from app.images.routes import router as images_router
 from app.library.routes import router as library_router
+from app.stats.routes import router as stats_router
 
 api_router = APIRouter()
 
@@ -27,3 +28,4 @@ api_router.include_router(images_router)
 api_router.include_router(usage_router)
 api_router.include_router(image_assets_router)
 api_router.include_router(image_posts_router)
+api_router.include_router(stats_router)
