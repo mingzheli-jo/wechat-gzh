@@ -1,4 +1,5 @@
 import json
+import uuid
 from pathlib import Path
 
 import httpx
@@ -208,3 +209,101 @@ async def test_compose_and_push_two_panel_success(
         assert refreshed.wechat_draft_media_id == "DRAFT_MID"
         assert refreshed.composed_image_path
         assert Path(refreshed.composed_image_path).exists()
+
+
+@pytest.mark.asyncio
+async def test_generate_with_panel_asset_ids_skips_doubao(
+    db_engine, db_session, monkeypatch, tmp_path
+):
+    """When panel_asset_ids is set, generation must reuse existing assets
+    without calling the Doubao image API.  Any unmocked httpx call to
+    ark.test/… would raise ConnectError, making a regression immediately
+    visible.
+    """
+    from app.image_posts.models import ImageAsset, ImageAssetSource
+    from app.tasks import image_pipeline
+
+    # ── Patch LLM registry (caption stage still runs) ────────────────────
+    async def fake_chat(messages, *, model, temperature, json_mode=False, **k):
+        from app.ai_providers.base import ChatResult, TokenUsage
+        return ChatResult(
+            content=json.dumps({
+                "captions": ["复用上文案", "复用下文案"],
+                "scene_prompts": ["reuse scene 1", "reuse scene 2"],
+            }),
+            model=model,
+            usage=TokenUsage(prompt_tokens=5, completion_tokens=10),
+        )
+
+    class FakeProvider:
+        name = "fake"
+        async def chat(self, *a, **k):
+            return await fake_chat(*a, **k)
+
+    fake_registry = type("R", (), {
+        "role": lambda self, r: (FakeProvider(), "fake-model"),
+    })()
+    monkeypatch.setattr(
+        image_pipeline, "get_registry", lambda: fake_registry, raising=False,
+    )
+    monkeypatch.setattr(
+        image_pipeline, "_ensure_registry",
+        lambda session: _noop_async(), raising=False,
+    )
+
+    # ── Seed account + 2 pre-existing ImageAssets ─────────────────────────
+    account = await _seed_account_with_ref(
+        db_session, tmp_path / "accounts" / "char.png"
+    )
+
+    asset_ids: list[str] = []
+    for i in range(2):
+        p = tmp_path / "image_assets" / f"reuse_{i}.png"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(b"\x89PNG\r\n\x1a\nfake_reuse")
+        asset = ImageAsset(
+            account_id=account.id,
+            image_path=str(p),
+            scene_prompt=f"reuse scene {i}",
+            tags=[],
+            source=ImageAssetSource.ai_generated,
+            used_count=0,
+        )
+        db_session.add(asset)
+        await db_session.commit()
+        await db_session.refresh(asset)
+        asset_ids.append(str(asset.id))
+
+    # ── Create post with panel_asset_ids pre-set ──────────────────────────
+    post = ImagePost(
+        account_id=account.id,
+        template=ImagePostTemplate.two_panel_contrast,
+        topic="复用测试",
+        tone="self_mockery",
+        status=ImagePostStatus.pending,
+        panel_asset_ids=asset_ids,
+    )
+    db_session.add(post)
+    await db_session.commit()
+
+    # ── Call directly — no respx mock; any Doubao call raises ─────────────
+    await image_pipeline._generate_with_session(db_session, post.id)
+
+    # ── Verify via fresh session ──────────────────────────────────────────
+    fresh_sm = async_sessionmaker(db_engine, expire_on_commit=False)
+    async with fresh_sm() as fresh:
+        refreshed = (
+            await fresh.execute(select(ImagePost).where(ImagePost.id == post.id))
+        ).scalar_one()
+        assert refreshed.status == ImagePostStatus.generated
+        assert refreshed.asset_ids == asset_ids
+
+        for aid_str in asset_ids:
+            asset = (
+                await fresh.execute(
+                    select(ImageAsset).where(
+                        ImageAsset.id == uuid.UUID(aid_str)
+                    )
+                )
+            ).scalar_one()
+            assert asset.used_count == 1
