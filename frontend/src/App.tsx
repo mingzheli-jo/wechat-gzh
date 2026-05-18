@@ -4,6 +4,9 @@ import { Link, Navigate, NavLink, Route, Routes, useNavigate } from "react-route
 import Accounts from "./pages/Accounts";
 import DraftDetail from "./pages/DraftDetail";
 import Drafts from "./pages/Drafts";
+import ImageAssets from "./pages/ImageAssets";
+import ImagePostDetail from "./pages/ImagePostDetail";
+import ImagePosts from "./pages/ImagePosts";
 import Library from "./pages/Library";
 import Login from "./pages/Login";
 import Settings from "./pages/Settings";
@@ -39,6 +42,17 @@ const NAV_PRIMARY: NavItem[] = [
       <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
         <path d="M4 2h6l3 3v9H4V2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
         <path d="M10 2v3h3" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
+    to: "/image-posts",
+    label: "图片",
+    icon: (
+      <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <rect x="2" y="2" width="12" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+        <circle cx="5.5" cy="5.5" r="1" fill="currentColor" />
+        <path d="M2 11l3.5-3.5L8 10l2.5-2.5L14 11" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
       </svg>
     ),
   },
@@ -146,6 +160,9 @@ export default function App() {
       <Route path="/library" element={<Shell><Library /></Shell>} />
       <Route path="/drafts" element={<Shell><Drafts /></Shell>} />
       <Route path="/drafts/:id" element={<Shell><DraftDetail /></Shell>} />
+      <Route path="/image-posts" element={<Shell><ImagePosts /></Shell>} />
+      <Route path="/image-posts/:id" element={<Shell><ImagePostDetail /></Shell>} />
+      <Route path="/image-assets" element={<Shell><ImageAssets /></Shell>} />
       <Route path="/accounts" element={<Shell><Accounts /></Shell>} />
       <Route path="/settings" element={<Shell><Settings /></Shell>} />
       <Route path="*" element={<Navigate to="/library" replace />} />
