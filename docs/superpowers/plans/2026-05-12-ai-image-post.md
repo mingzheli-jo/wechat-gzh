@@ -4475,7 +4475,7 @@ git push origin master
 - Modify: `backend/app/tasks/image_pipeline.py`
 - Modify: `backend/tests/integration/test_image_pipeline.py`
 
-- [ ] **Step 1: 看现有 `record_usage` 签名**
+- [x] **Step 1: 看现有 `record_usage` 签名**
 
 ```bash
 grep -n "def record_usage" backend/app/ai_providers/usage.py
@@ -4483,7 +4483,7 @@ grep -n "def record_usage" backend/app/ai_providers/usage.py
 
 记录现有签名，下一步扩展兼容。
 
-- [ ] **Step 2: 加 `cost_cents` 参数（向后兼容）**
+- [x] **Step 2: 加 `cost_cents` 参数（向后兼容）**
 
 修改 `record_usage` 函数签名，加 `cost_cents: int | None = None` 参数（按现有签名风格放在末尾）。如果实现里把 usage 拆到 `AIUsage` 表，加一列 `cost_cents` 或直接计算后写 `total_cost` 字段（视现有 schema 而定）。
 
@@ -4504,7 +4504,7 @@ def downgrade() -> None:
     op.drop_column("ai_usage", "cost_cents")
 ```
 
-- [ ] **Step 3: 在 image_pipeline 里调 `record_usage`**
+- [x] **Step 3: 在 image_pipeline 里调 `record_usage`**
 
 修改 `_generate_with_session` 的 caption stage，在 `parsed = ...` 后追加：
 
@@ -4537,7 +4537,7 @@ def downgrade() -> None:
 
 `record_usage` 的实现需要支持 `usage=None`。
 
-- [ ] **Step 4: 加成本估算到 `pricing` 表（如有）**
+- [x] **Step 4: 加成本估算到 `pricing` 表（如有）**
 
 `backend/app/ai_providers/usage.py` 末尾追加常量：
 
@@ -4545,14 +4545,14 @@ def downgrade() -> None:
 DOUBAO_SEEDREAM_PRICE_PER_IMAGE_CENTS = 30  # ~¥0.3
 ```
 
-- [ ] **Step 5: 跑测试 + lint**
+- [x] **Step 5: 跑测试 + lint**
 
 ```bash
 uv run pytest tests/integration/test_image_pipeline.py -v
 uv run ruff check app/ai_providers/usage.py app/tasks/image_pipeline.py
 ```
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add backend/app/ai_providers/usage.py backend/app/tasks/image_pipeline.py \
