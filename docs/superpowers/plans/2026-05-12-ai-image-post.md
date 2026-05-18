@@ -4225,7 +4225,7 @@ git commit -m "feat(image-posts/ui): asset picker + reuse mode in create form"
 **Files:**
 - Modify: `backend/tests/integration/test_image_pipeline.py`
 
-- [ ] **Step 1: 追加复用路径测试**
+- [x] **Step 1: 追加复用路径测试**
 
 在 `tests/integration/test_image_pipeline.py` 末尾追加：
 
@@ -4311,20 +4311,20 @@ async def test_generate_with_panel_asset_ids_skips_doubao(
             assert a.used_count == 1
 ```
 
-- [ ] **Step 2: 跑测试确认 PASS**
+- [x] **Step 2: 跑测试确认 PASS**
 
 ```bash
 cd backend
 uv run pytest tests/integration/test_image_pipeline.py::test_generate_with_panel_asset_ids_skips_doubao -v
 ```
 
-- [ ] **Step 3: lint**
+- [x] **Step 3: lint**
 
 ```bash
 uv run ruff check tests/integration/test_image_pipeline.py
 ```
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add backend/tests/integration/test_image_pipeline.py
