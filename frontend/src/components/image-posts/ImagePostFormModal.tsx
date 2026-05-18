@@ -6,6 +6,7 @@ import {
   type ImagePostTemplate,
 } from "../../api/image-posts";
 import { Button, Modal, Textarea } from "../ui";
+import { AssetPickerModal } from "./AssetPickerModal";
 
 interface AccountMin {
   id: string;
@@ -37,6 +38,9 @@ export function ImagePostFormModal({ open, onClose, onCreated }: Props) {
   const [topic, setTopic] = useState("");
   const [tone, setTone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [imageSource, setImageSource] = useState<"new" | "reuse">("new");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickedAssetIds, setPickedAssetIds] = useState<string[]>([]);
 
   const create = useMutation({
     mutationFn: async () => {
@@ -45,6 +49,7 @@ export function ImagePostFormModal({ open, onClose, onCreated }: Props) {
         template,
         topic,
         tone,
+        panel_asset_ids: imageSource === "reuse" ? pickedAssetIds : null,
       });
       return data;
     },
@@ -62,6 +67,7 @@ export function ImagePostFormModal({ open, onClose, onCreated }: Props) {
   const needsCharRef = account && !account.character_reference_path;
 
   return (
+    <>
     <Modal
       open={open}
       onClose={onClose}
@@ -75,7 +81,14 @@ export function ImagePostFormModal({ open, onClose, onCreated }: Props) {
           <Button
             variant="primary"
             onClick={() => create.mutate()}
-            disabled={!accountId || !topic.trim() || create.isPending || !!needsCharRef}
+            disabled={
+              !accountId ||
+              !topic.trim() ||
+              create.isPending ||
+              !!needsCharRef ||
+              (imageSource === "reuse" &&
+                pickedAssetIds.length !== (template === "two_panel_contrast" ? 2 : 1))
+            }
             loading={create.isPending}
           >
             生成
@@ -161,10 +174,64 @@ export function ImagePostFormModal({ open, onClose, onCreated }: Props) {
           </div>
         </div>
 
+        <div>
+          <label style={{ fontSize: "var(--text-xs)", color: "var(--color-ink-3)" }}>图源</label>
+          <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-1)" }}>
+            {[
+              { v: "new", l: "AI 新生成" },
+              { v: "reuse", l: "从图库选" },
+            ].map((s) => (
+              <button
+                key={s.v}
+                type="button"
+                onClick={() => {
+                  setImageSource(s.v as "new" | "reuse");
+                  if (s.v === "new") setPickedAssetIds([]);
+                }}
+                style={{
+                  flex: 1,
+                  padding: "var(--space-2)",
+                  border: imageSource === s.v ? "2px solid var(--color-ink)" : "1px solid var(--color-surface-3)",
+                  background: imageSource === s.v ? "var(--color-surface-2)" : "transparent",
+                  borderRadius: "var(--radius-md)",
+                  cursor: "pointer",
+                  fontSize: "var(--text-sm)",
+                }}
+              >
+                {s.l}
+              </button>
+            ))}
+          </div>
+          {imageSource === "reuse" && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setPickerOpen(true)}
+              style={{ marginTop: "var(--space-2)" }}
+              disabled={!accountId}
+            >
+              {pickedAssetIds.length > 0 ? `已选 ${pickedAssetIds.length} 张` : "选择图片"}
+            </Button>
+          )}
+        </div>
+
         {error && (
           <p style={{ color: "var(--color-failed-fg)", fontSize: "var(--text-sm)" }}>{error}</p>
         )}
       </div>
     </Modal>
+    {pickerOpen && accountId && (
+      <AssetPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        accountId={accountId}
+        needCount={template === "two_panel_contrast" ? 2 : 1}
+        onConfirm={(ids) => {
+          setPickedAssetIds(ids);
+          setPickerOpen(false);
+        }}
+      />
+    )}
+    </>
   );
 }
