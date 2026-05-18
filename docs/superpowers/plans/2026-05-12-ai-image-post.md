@@ -3738,7 +3738,7 @@ git commit -m "feat(image-posts/ui): CompositionCanvas for live caption overlay 
 **Files:**
 - Modify: `frontend/src/pages/ImagePostDetail.tsx`
 
-- [ ] **Step 1: 实现详情页（覆写 stub）**
+- [x] **Step 1: 实现详情页（覆写 stub）**
 
 `frontend/src/pages/ImagePostDetail.tsx`：
 
@@ -3748,6 +3748,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { imageAssetsApi, imagePostsApi } from "../api/image-posts";
+
 import { Badge, Button, EyebrowLabel, Input, PageSpinner } from "../components/ui";
 import { CompositionCanvas } from "../components/image-posts/CompositionCanvas";
 
@@ -3930,7 +3931,7 @@ export default function ImagePostDetail() {
 }
 ```
 
-- [ ] **Step 2: build**
+- [x] **Step 2: build**
 
 ```bash
 cd frontend
@@ -3939,7 +3940,7 @@ pnpm build
 
 预期：通过。可能有 unused import 警告，按提示修。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add frontend/src/pages/ImagePostDetail.tsx
