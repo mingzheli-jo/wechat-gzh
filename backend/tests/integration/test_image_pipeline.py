@@ -129,3 +129,82 @@ async def test_generate_image_post_two_panel(
 
 async def _noop_async():
     return None
+
+
+async def _async_value(v):
+    return v
+
+
+@pytest.mark.asyncio
+async def test_compose_and_push_two_panel_success(
+    db_engine, db_session, monkeypatch, tmp_path
+):
+    from app.image_posts.models import ImageAsset, ImageAssetSource
+    from app.tasks import image_pipeline
+
+    monkeypatch.setattr(
+        "app.tasks.image_pipeline.get_access_token",
+        lambda **k: _async_value("TOK"),
+        raising=False,
+    )
+
+    account = await _seed_account_with_ref(
+        db_session, tmp_path / "accounts" / "char.png"
+    )
+    # Pre-seed assets (simulating prior generation)
+    from PIL import Image as _Img
+    asset_paths = []
+    for i in range(2):
+        p = tmp_path / "image_assets" / f"a{i}.png"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        _Img.new("RGB", (1024, 1024), (200, 150, 100)).save(p)
+        asset = ImageAsset(
+            account_id=account.id,
+            image_path=str(p),
+            scene_prompt=f"scene {i}",
+            tags=[],
+            source=ImageAssetSource.ai_generated,
+        )
+        db_session.add(asset)
+        await db_session.commit()
+        await db_session.refresh(asset)
+        asset_paths.append(asset.id)
+
+    post = ImagePost(
+        account_id=account.id,
+        template=ImagePostTemplate.two_panel_contrast,
+        topic="t",
+        status=ImagePostStatus.generated,
+        captions=["上文案", "下文案"],
+        panel_prompts=["s1", "s2"],
+        asset_ids=[str(a) for a in asset_paths],
+    )
+    db_session.add(post)
+    await db_session.commit()
+
+    async with respx.mock(assert_all_called=False) as mock:
+        mock.post(
+            "https://api.weixin.qq.com/cgi-bin/material/add_material"
+        ).mock(
+            return_value=httpx.Response(
+                200,
+                json={"media_id": "MID", "url": "https://mmbiz/img.png"},
+            )
+        )
+        mock.post("https://api.weixin.qq.com/cgi-bin/draft/add").mock(
+            return_value=httpx.Response(
+                200, json={"media_id": "DRAFT_MID"}
+            )
+        )
+        await image_pipeline._compose_and_push_with_session(db_session, post.id)
+
+    fresh_sm = async_sessionmaker(db_engine, expire_on_commit=False)
+    async with fresh_sm() as fresh:
+        refreshed = (
+            await fresh.execute(select(ImagePost).where(ImagePost.id == post.id))
+        ).scalar_one()
+        assert refreshed.status == ImagePostStatus.pushed
+        assert refreshed.wechat_thumb_media_id == "MID"
+        assert refreshed.wechat_draft_media_id == "DRAFT_MID"
+        assert refreshed.composed_image_path
+        assert Path(refreshed.composed_image_path).exists()

@@ -4,6 +4,7 @@ import base64
 import json
 import logging
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,7 @@ from app.ai_providers.base import Message
 from app.ai_providers.registry import RegistryError, get_registry, load_from_db
 from app.config import get_settings
 from app.db.session import make_engine
+from app.image_composer.compose import compose
 from app.image_generator.base import ImageGenRequest
 from app.image_generator.factory import get_image_provider
 from app.image_posts.models import (
@@ -27,6 +29,9 @@ from app.image_posts.models import (
 )
 from app.image_posts.templates import TEMPLATES
 from app.tasks.celery_app import celery_app
+from app.wechat.draft import WeChatDraftError, push_draft
+from app.wechat.material import upload_image
+from app.wechat.token import get_access_token
 
 logger = logging.getLogger(__name__)
 
@@ -184,3 +189,127 @@ async def _do_generate(post_id: uuid.UUID) -> None:
 )
 def generate_image_post(self: Any, post_id: str) -> None:
     asyncio.run(_do_generate(uuid.UUID(post_id)))
+
+
+async def _compose_and_push_with_session(
+    session: AsyncSession, post_id: uuid.UUID
+) -> None:
+    post = (
+        await session.execute(select(ImagePost).where(ImagePost.id == post_id))
+    ).scalar_one_or_none()
+    if post is None:
+        return
+    account = (
+        await session.execute(
+            select(Account).where(Account.id == post.account_id)
+        )
+    ).scalar_one()
+    if post.status not in (
+        ImagePostStatus.generated, ImagePostStatus.failed
+    ):
+        logger.warning(
+            "cannot push image_post %s from status %s", post.id, post.status
+        )
+        return
+
+    asset_ids = post.asset_ids or []
+    asset_uuid_list = [uuid.UUID(str(a)) for a in asset_ids]
+    assets = (await session.execute(
+        select(ImageAsset).where(ImageAsset.id.in_(asset_uuid_list))
+    )).scalars().all()
+    # Preserve order from asset_ids
+    by_id = {str(a.id): a for a in assets}
+    ordered_paths = [Path(by_id[str(aid)].image_path) for aid in asset_ids]
+
+    template = TEMPLATES[ImagePostTemplate(post.template)]
+    post.status = ImagePostStatus.composing
+    await session.commit()
+
+    try:
+        settings = get_settings()
+        output_dir = Path(settings.image_storage_dir) / "image_posts"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / f"{post.id}.png"
+        compose(
+            template=template,
+            panel_paths=ordered_paths,
+            captions=post.captions or [],
+            watermark=f"公众号·{account.name}",
+            font_path=Path(settings.image_posts_font_path),
+            output_path=output_path,
+        )
+        post.composed_image_path = str(output_path)
+        post.status = ImagePostStatus.pushing
+        await session.commit()
+
+        token = await get_access_token(
+            account_id=str(account.id),
+            appid=account.wechat_appid,
+            secret=account.wechat_secret,
+        )
+        upload_result = await upload_image(
+            access_token=token, file_path=str(output_path),
+        )
+        post.wechat_thumb_media_id = upload_result["media_id"]
+
+        title = (post.captions or ["未命名"])[0][:30]
+        wechat_img_url = upload_result.get("url", "")
+        content_html = (
+            f'<p style="text-align:center;">'
+            f'<img src="{wechat_img_url}" style="max-width:100%;"/>'
+            f'</p>'
+        )
+        try:
+            draft_media_id = await push_draft(
+                access_token=token,
+                title=title,
+                content_html=content_html,
+                thumb_media_id=post.wechat_thumb_media_id,
+                author=account.name,
+            )
+        except WeChatDraftError as exc:
+            if exc.errcode == 40001:
+                token = await get_access_token(
+                    account_id=str(account.id),
+                    appid=account.wechat_appid,
+                    secret=account.wechat_secret,
+                    force_refresh=True,
+                )
+                draft_media_id = await push_draft(
+                    access_token=token,
+                    title=title,
+                    content_html=content_html,
+                    thumb_media_id=post.wechat_thumb_media_id,
+                    author=account.name,
+                )
+            else:
+                raise
+
+        post.wechat_draft_media_id = draft_media_id
+        post.wechat_pushed_at = datetime.now(UTC)
+        post.status = ImagePostStatus.pushed
+        post.error_msg = None
+        await session.commit()
+    except Exception as exc:
+        logger.exception("compose_and_push failed for image_post %s", post.id)
+        post.status = ImagePostStatus.failed
+        post.error_msg = f"{type(exc).__name__}: {exc}"
+        await session.commit()
+
+
+async def _do_compose_and_push(post_id: uuid.UUID) -> None:
+    engine = make_engine()
+    sm = async_sessionmaker(engine, expire_on_commit=False)
+    async with sm() as session:
+        await _compose_and_push_with_session(session, post_id)
+    await engine.dispose()
+
+
+@celery_app.task(
+    name="app.tasks.image_pipeline.compose_and_push_image_post",
+    bind=True,
+    max_retries=2,
+    default_retry_delay=15,
+)
+def compose_and_push_image_post(self: Any, post_id: str) -> None:
+    asyncio.run(_do_compose_and_push(uuid.UUID(post_id)))
