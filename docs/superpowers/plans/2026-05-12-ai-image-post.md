@@ -4447,7 +4447,7 @@ git commit -m "feat(image-posts/ui): image-assets browse page (read-only)"
 
 ## Task 22: 阶段 2 回归 + 推送
 
-- [ ] **Step 1: 全套**
+- [x] **Step 1: 全套**
 
 ```bash
 cd backend
@@ -4457,7 +4457,7 @@ cd ../frontend
 pnpm build
 ```
 
-- [ ] **Step 2: 推送**
+- [x] **Step 2: 推送**
 
 ```bash
 cd ..
