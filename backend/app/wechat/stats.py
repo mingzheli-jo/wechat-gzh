@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Any
 
 import httpx
 
@@ -12,7 +13,7 @@ _COMMENT_LIST_URL = "https://api.weixin.qq.com/cgi-bin/comment/list"
 _TIMEOUT_SECONDS = 10.0
 
 
-def _check_errcode(data: dict[str, object]) -> None:
+def _check_errcode(data: dict[str, Any]) -> None:
     errcode = data.get("errcode")
     if errcode is not None and errcode != 0:
         raise WechatStatsError(
@@ -22,7 +23,7 @@ def _check_errcode(data: dict[str, object]) -> None:
 
 async def _get_datacube(
     path: str, *, access_token: str, begin_date: date, end_date: date
-) -> list[dict[str, object]]:
+) -> list[dict[str, Any]]:
     async with httpx.AsyncClient(timeout=_TIMEOUT_SECONDS) as client:
         resp = await client.get(
             f"{_DATACUBE_BASE}/{path}",
@@ -39,7 +40,7 @@ async def _get_datacube(
 
 async def fetch_user_summary(
     *, access_token: str, begin_date: date, end_date: date
-) -> list[dict[str, object]]:
+) -> list[dict[str, Any]]:
     return await _get_datacube(
         "getusersummary",
         access_token=access_token,
@@ -50,7 +51,7 @@ async def fetch_user_summary(
 
 async def fetch_user_cumulate(
     *, access_token: str, begin_date: date, end_date: date
-) -> list[dict[str, object]]:
+) -> list[dict[str, Any]]:
     return await _get_datacube(
         "getusercumulate",
         access_token=access_token,
@@ -61,7 +62,7 @@ async def fetch_user_cumulate(
 
 async def fetch_article_total(
     *, access_token: str, begin_date: date, end_date: date
-) -> list[dict[str, object]]:
+) -> list[dict[str, Any]]:
     return await _get_datacube(
         "getarticletotal",
         access_token=access_token,

@@ -15,6 +15,7 @@ celery_app = Celery(
         "app.tasks.images",
         "app.tasks.publish",
         "app.tasks.maintenance",
+        "app.tasks.stats",
     ],
 )
 
