@@ -15,7 +15,7 @@ from app.stats.schemas import (
 )
 from app.tasks.stats import sync_all_accounts_stats, sync_one_account_stats
 
-router = APIRouter(prefix="/api/stats", tags=["stats"])
+router = APIRouter(prefix="/stats", tags=["stats"])
 
 
 @router.get("/accounts", response_model=list[AccountStatsRow])
