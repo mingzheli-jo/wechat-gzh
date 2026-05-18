@@ -5,6 +5,7 @@ from app.ai_providers.routes import router as ai_providers_router
 from app.ai_providers.usage_routes import router as usage_router
 from app.auth.routes import router as auth_router
 from app.drafts.routes import router as drafts_router
+from app.image_posts.routes import router as image_posts_router
 from app.images.routes import router as images_router
 from app.library.routes import router as library_router
 
@@ -23,3 +24,4 @@ api_router.include_router(ai_providers_router)
 api_router.include_router(drafts_router)
 api_router.include_router(images_router)
 api_router.include_router(usage_router)
+api_router.include_router(image_posts_router)
