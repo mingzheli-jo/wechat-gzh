@@ -23,7 +23,6 @@ from app.image_posts.schemas import (
     ImagePostUpdate,
 )
 from app.image_posts.templates import TEMPLATES
-from app.tasks.image_pipeline import generate_image_post
 
 router = APIRouter(prefix="/image-posts", tags=["image-posts"])
 
@@ -82,6 +81,7 @@ async def create(
     await db.commit()
     await db.refresh(post)
 
+    from app.tasks.image_pipeline import generate_image_post
     generate_image_post.delay(str(post.id))
 
     return _post_to_out(post)

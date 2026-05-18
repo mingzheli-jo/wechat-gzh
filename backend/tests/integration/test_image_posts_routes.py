@@ -171,3 +171,113 @@ async def test_delete_image_post(auth_client, db_session, tmp_path):
     assert r.status_code == 204
     r2 = await auth_client.get(f"/api/image-posts/{post_id}")
     assert r2.status_code == 404
+
+
+async def test_list_filters_by_status(auth_client, db_session, tmp_path):
+    """status query param actually filters; FastAPI enum-from-querystring path."""
+    from app.image_posts.models import ImagePost, ImagePostStatus
+
+    account = await _seed_account_with_ref(db_session, tmp_path)
+    # Create one via API (status=pending) ...
+    await auth_client.post(
+        "/api/image-posts",
+        json={
+            "account_id": str(account.id),
+            "template": "single_panel_caption",
+            "topic": "pending-one",
+        },
+    )
+    # ... and one directly with status=generated so the filter has something
+    # to separate.
+    generated = ImagePost(
+        account_id=account.id,
+        template="single_panel_caption",
+        topic="generated-one",
+        status=ImagePostStatus.generated,
+    )
+    db_session.add(generated)
+    await db_session.commit()
+
+    r_all = await auth_client.get("/api/image-posts")
+    assert r_all.json()["total"] == 2
+
+    r_pending = await auth_client.get("/api/image-posts?status=pending")
+    assert r_pending.status_code == 200
+    body = r_pending.json()
+    assert body["total"] == 1
+    assert body["items"][0]["topic"] == "pending-one"
+
+    r_generated = await auth_client.get("/api/image-posts?status=generated")
+    assert r_generated.json()["total"] == 1
+    assert r_generated.json()["items"][0]["topic"] == "generated-one"
+
+
+async def test_create_rejects_wrong_panel_asset_count(
+    auth_client, db_session, tmp_path
+):
+    """two_panel_contrast.panel_count==2; passing 1 asset id must 400."""
+    from app.image_posts.models import ImageAsset, ImageAssetSource
+
+    account = await _seed_account_with_ref(db_session, tmp_path)
+    asset = ImageAsset(
+        account_id=account.id,
+        image_path=str(tmp_path / "a.png"),
+        scene_prompt="s",
+        tags=[],
+        source=ImageAssetSource.ai_generated,
+    )
+    db_session.add(asset)
+    await db_session.commit()
+    await db_session.refresh(asset)
+
+    r = await auth_client.post(
+        "/api/image-posts",
+        json={
+            "account_id": str(account.id),
+            "template": "two_panel_contrast",
+            "topic": "t",
+            "panel_asset_ids": [str(asset.id)],
+        },
+    )
+    assert r.status_code == 400
+    assert "panel_count" in r.json()["detail"]
+
+
+async def test_create_rejects_foreign_asset(auth_client, db_session, tmp_path):
+    """asset belonging to another account must 400 (cross-account guard)."""
+    from app.accounts.models import Account
+    from app.image_posts.models import ImageAsset, ImageAssetSource
+
+    account = await _seed_account_with_ref(db_session, tmp_path)
+    other = Account(
+        name="Other",
+        wechat_appid="wx2",
+        wechat_secret="s2",
+        category="x",
+        character_reference_path=str(tmp_path / "other.png"),
+    )
+    db_session.add(other)
+    await db_session.commit()
+    await db_session.refresh(other)
+    foreign_asset = ImageAsset(
+        account_id=other.id,
+        image_path=str(tmp_path / "foreign.png"),
+        scene_prompt="s",
+        tags=[],
+        source=ImageAssetSource.ai_generated,
+    )
+    db_session.add(foreign_asset)
+    await db_session.commit()
+    await db_session.refresh(foreign_asset)
+
+    r = await auth_client.post(
+        "/api/image-posts",
+        json={
+            "account_id": str(account.id),
+            "template": "single_panel_caption",
+            "topic": "t",
+            "panel_asset_ids": [str(foreign_asset.id)],
+        },
+    )
+    assert r.status_code == 400
+    assert "asset_id" in r.json()["detail"]
