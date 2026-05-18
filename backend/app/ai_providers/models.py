@@ -79,6 +79,7 @@ class AIUsage(Base):
     cost_estimate: Mapped[Decimal] = mapped_column(
         Numeric(10, 6), nullable=False, default=0
     )
+    cost_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
     purpose: Mapped[str] = mapped_column(String(100), nullable=False)
     ref_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True

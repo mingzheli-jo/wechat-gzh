@@ -11,6 +11,8 @@ from app.ai_providers.models import AIProvider, AIUsage
 
 logger = logging.getLogger(__name__)
 
+# Fixed cost (in ¥-cents) per Doubao SeedDream image generation (~¥0.30 each).
+DOUBAO_SEEDREAM_PRICE_PER_IMAGE_CENTS = 30
 
 # Rough USD/¥-equivalent prices per 1M tokens. Approximate; update as needed.
 _PRICE_PER_M_TOKENS: dict[str, dict[str, tuple[float, float]]] = {
@@ -40,10 +42,11 @@ async def record_usage(
     provider_name: str,
     role: str | None,
     model: str,
-    usage: TokenUsage,
+    usage: TokenUsage | None = None,
     purpose: str,
     ref_id: uuid.UUID | None = None,
     error: str | None = None,
+    cost_cents: int | None = None,
 ) -> None:
     try:
         provider = (
@@ -55,9 +58,10 @@ async def record_usage(
             provider_id=provider.id if provider else None,
             role=role,
             model=model,
-            prompt_tokens=usage.prompt_tokens,
-            completion_tokens=usage.completion_tokens,
-            cost_estimate=estimate_cost(provider_name, model, usage),
+            prompt_tokens=usage.prompt_tokens if usage else 0,
+            completion_tokens=usage.completion_tokens if usage else 0,
+            cost_estimate=estimate_cost(provider_name, model, usage) if usage else Decimal("0"),
+            cost_cents=cost_cents,
             purpose=purpose,
             ref_id=ref_id,
             error=error,

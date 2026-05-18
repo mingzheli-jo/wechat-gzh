@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.accounts.models import Account
 from app.ai_providers.base import Message
 from app.ai_providers.registry import RegistryError, get_registry, load_from_db
+from app.ai_providers.usage import DOUBAO_SEEDREAM_PRICE_PER_IMAGE_CENTS, record_usage
 from app.config import get_settings
 from app.db.session import make_engine
 from app.image_composer.compose import compose
@@ -122,6 +123,15 @@ async def _generate_with_session(
         post.captions = parsed["captions"]
         post.panel_prompts = parsed["scene_prompts"]
         await session.commit()
+        await record_usage(
+            session,
+            provider_name=writer.name,
+            role="writer",
+            model=writer_model,
+            usage=chat_result.usage,
+            purpose="image_post_caption",
+            ref_id=post.id,
+        )
 
         # ── Image stage ──────────────────────────
         if post.panel_asset_ids:
@@ -151,6 +161,16 @@ async def _generate_with_session(
                     )
                 )
                 local_path = await _download_to_local(result.url, storage_root)
+                await record_usage(
+                    session,
+                    provider_name="doubao",
+                    role=None,
+                    model="seedream",
+                    usage=None,
+                    purpose="image_post_image_gen",
+                    ref_id=post.id,
+                    cost_cents=DOUBAO_SEEDREAM_PRICE_PER_IMAGE_CENTS,
+                )
                 asset = ImageAsset(
                     account_id=account.id,
                     image_path=str(local_path),
