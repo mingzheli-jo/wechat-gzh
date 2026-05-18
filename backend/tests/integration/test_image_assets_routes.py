@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -8,7 +10,14 @@ from app.main import create_app
 
 
 @pytest.fixture
-def app(db_session):
+def app(db_session, monkeypatch, tmp_path):
+    # The /file endpoint enforces a containment check against
+    # settings.image_storage_dir, so point it at the per-test tmp_path
+    # where _seed_assets writes its fake PNGs.
+    monkeypatch.setenv("IMAGE_STORAGE_DIR", str(tmp_path))
+    from app.config import get_settings
+    get_settings.cache_clear()
+
     app = create_app()
 
     async def _override():
@@ -77,3 +86,33 @@ async def test_get_image_asset_file(auth_client, db_session, tmp_path):
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("image/")
     assert len(r.content) > 0
+
+
+async def test_get_image_asset_detail_404(auth_client):
+    bogus = uuid.uuid4()
+    r = await auth_client.get(f"/api/image-assets/{bogus}")
+    assert r.status_code == 404
+
+
+async def test_get_image_asset_file_missing(auth_client, db_session, tmp_path):
+    """Row exists but the file on disk does not."""
+    _, assets = await _seed_assets(db_session, tmp_path, n=1)
+    assets[0].image_path = str(tmp_path / "ghost.png")  # never written
+    await db_session.commit()
+    r = await auth_client.get(f"/api/image-assets/{assets[0].id}/file")
+    assert r.status_code == 404
+
+
+async def test_get_image_asset_file_rejects_traversal(
+    auth_client, db_session, tmp_path
+):
+    """A tampered DB row pointing outside storage_root must 403."""
+    _, assets = await _seed_assets(db_session, tmp_path, n=1)
+    # Point at a real file outside storage_root so we don't accidentally
+    # 404 on file-missing before the containment check fires.
+    outside = tmp_path.parent / "escape.png"
+    outside.write_bytes(b"\x89PNG\r\n\x1a\nfake")
+    assets[0].image_path = str(outside)
+    await db_session.commit()
+    r = await auth_client.get(f"/api/image-assets/{assets[0].id}/file")
+    assert r.status_code == 403

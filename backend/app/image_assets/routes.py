@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
 from app.auth.dependencies import get_current_username
+from app.config import get_settings
 from app.image_posts import service
 from app.image_posts.schemas import ImageAssetListPage, ImageAssetOut
 
@@ -52,7 +53,15 @@ async def get_file(
     obj = await service.get_image_asset(db, asset_id)
     if obj is None:
         raise HTTPException(404, "ImageAsset not found")
-    p = Path(obj.image_path)
+    p = Path(obj.image_path).resolve()
+    # Defense in depth: image_path is set by our own Celery code under
+    # settings.image_storage_dir, but a tampered DB row could escape the
+    # storage root. Refuse anything outside it.
+    storage_root = Path(get_settings().image_storage_dir).resolve()
+    try:
+        p.relative_to(storage_root)
+    except ValueError as exc:
+        raise HTTPException(403, "Forbidden") from exc
     if not p.exists():
         raise HTTPException(404, "Image file missing")
     guessed, _enc = mimetypes.guess_type(str(p))
