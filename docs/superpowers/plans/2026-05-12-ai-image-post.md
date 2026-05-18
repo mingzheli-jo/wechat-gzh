@@ -4338,7 +4338,7 @@ git commit -m "test(image-posts): verify reuse path skips Doubao + increments us
 **Files:**
 - Modify: `frontend/src/pages/ImageAssets.tsx`
 
-- [ ] **Step 1: 实现浏览页（覆写 stub）**
+- [x] **Step 1: 实现浏览页（覆写 stub）**
 
 `frontend/src/pages/ImageAssets.tsx`：
 
@@ -4429,14 +4429,14 @@ export default function ImageAssets() {
 }
 ```
 
-- [ ] **Step 2: build**
+- [x] **Step 2: build**
 
 ```bash
 cd frontend
 pnpm build
 ```
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add frontend/src/pages/ImageAssets.tsx
