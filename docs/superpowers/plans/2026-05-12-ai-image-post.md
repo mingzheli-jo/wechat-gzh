@@ -1605,7 +1605,7 @@ git commit -m "feat(image-posts): add Pydantic schemas + DB service helpers"
 - Create: `backend/app/tasks/image_pipeline.py`
 - Create: `backend/tests/integration/test_image_pipeline.py`
 
-- [ ] **Step 1: 写失败测试（仅成功路径，新生成）**
+- [x] **Step 1: 写失败测试（仅成功路径，新生成）**
 
 `backend/tests/integration/test_image_pipeline.py`：
 
@@ -1745,7 +1745,7 @@ async def _noop_async():
     return None
 ```
 
-- [ ] **Step 2: 跑确认 FAIL**
+- [x] **Step 2: 跑确认 FAIL**
 
 ```bash
 cd backend
@@ -1754,7 +1754,7 @@ uv run pytest tests/integration/test_image_pipeline.py -v
 
 预期：ImportError（image_pipeline 模块不存在）。
 
-- [ ] **Step 3: 实现 image_pipeline.py**
+- [x] **Step 3: 实现 image_pipeline.py**
 
 `backend/app/tasks/image_pipeline.py`：
 
@@ -1938,7 +1938,7 @@ def generate_image_post(self: Any, post_id: str) -> None:
     asyncio.run(_do_generate(uuid.UUID(post_id)))
 ```
 
-- [ ] **Step 4: 跑测试确认 PASS**
+- [x] **Step 4: 跑测试确认 PASS**
 
 ```bash
 uv run pytest tests/integration/test_image_pipeline.py::test_generate_image_post_two_panel -v
@@ -1946,14 +1946,14 @@ uv run pytest tests/integration/test_image_pipeline.py::test_generate_image_post
 
 预期：PASS。如果失败，检查 `_parse_json_safe` 解析、fake provider 注入路径。
 
-- [ ] **Step 5: lint / type**
+- [x] **Step 5: lint / type**
 
 ```bash
 uv run ruff check app/tasks/image_pipeline.py tests/integration/test_image_pipeline.py
 uv run mypy app/tasks/image_pipeline.py
 ```
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add backend/app/tasks/image_pipeline.py backend/tests/integration/test_image_pipeline.py
