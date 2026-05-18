@@ -3236,7 +3236,7 @@ git commit -m "feat(image-posts/ui): API client + nav + page stubs"
 - Modify: `frontend/src/pages/ImagePosts.tsx`
 - Create: `frontend/src/components/image-posts/ImagePostFormModal.tsx`
 
-- [ ] **Step 1: 写 ImagePostFormModal**
+- [x] **Step 1: 写 ImagePostFormModal**
 
 `frontend/src/components/image-posts/ImagePostFormModal.tsx`：
 
@@ -3413,7 +3413,7 @@ export function ImagePostFormModal({ open, onClose, onCreated }: Props) {
 }
 ```
 
-- [ ] **Step 2: 实现 ImagePosts 列表页**
+- [x] **Step 2: 实现 ImagePosts 列表页**
 
 `frontend/src/pages/ImagePosts.tsx`（覆写 stub）：
 
@@ -3546,7 +3546,7 @@ export default function ImagePosts() {
 }
 ```
 
-- [ ] **Step 3: build**
+- [x] **Step 3: build**
 
 ```bash
 cd frontend
@@ -3555,7 +3555,7 @@ pnpm build
 
 预期：通过。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add frontend/src/pages/ImagePosts.tsx \
