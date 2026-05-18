@@ -10,6 +10,8 @@ import ImagePosts from "./pages/ImagePosts";
 import Library from "./pages/Library";
 import Login from "./pages/Login";
 import Settings from "./pages/Settings";
+import Stats from "./pages/Stats";
+import StatsDetail from "./pages/StatsDetail";
 
 function isAuthed(): boolean {
   return Boolean(localStorage.getItem("token"));
@@ -53,6 +55,15 @@ const NAV_PRIMARY: NavItem[] = [
         <rect x="2" y="2" width="12" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
         <circle cx="5.5" cy="5.5" r="1" fill="currentColor" />
         <path d="M2 11l3.5-3.5L8 10l2.5-2.5L14 11" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
+    to: "/stats",
+    label: "数据",
+    icon: (
+      <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M3 13V7M7 13V3M11 13V9M2 13.5h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -163,6 +174,8 @@ export default function App() {
       <Route path="/image-posts" element={<Shell><ImagePosts /></Shell>} />
       <Route path="/image-posts/:id" element={<Shell><ImagePostDetail /></Shell>} />
       <Route path="/image-assets" element={<Shell><ImageAssets /></Shell>} />
+      <Route path="/stats" element={<Shell><Stats /></Shell>} />
+      <Route path="/stats/:accountId" element={<Shell><StatsDetail /></Shell>} />
       <Route path="/accounts" element={<Shell><Accounts /></Shell>} />
       <Route path="/settings" element={<Shell><Settings /></Shell>} />
       <Route path="*" element={<Navigate to="/library" replace />} />
