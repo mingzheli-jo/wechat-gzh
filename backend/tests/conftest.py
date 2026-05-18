@@ -21,6 +21,7 @@ from app.auth.password import hash_password
 from app.config import get_settings
 from app.db.base import Base
 from app.drafts.models import Draft, ReviewReport  # noqa: F401
+from app.image_posts.models import ImageAsset, ImagePost  # noqa: F401
 from app.images.models import Image  # noqa: F401
 from app.library.models import LibraryItem  # noqa: F401
 from app.tasks.models import TaskRecord  # noqa: F401
@@ -34,7 +35,10 @@ def event_loop() -> Generator:
 
 
 @pytest.fixture(scope="session")
-def pg_container() -> Generator[PostgresContainer, None, None]:
+def pg_container() -> Generator[PostgresContainer | None, None, None]:
+    if os.environ.get("DATABASE_URL"):
+        yield None
+        return
     c = PostgresContainer("postgres:16-alpine")
     c.start()
     yield c
@@ -42,7 +46,12 @@ def pg_container() -> Generator[PostgresContainer, None, None]:
 
 
 @pytest.fixture(scope="session")
-def database_url(pg_container: PostgresContainer) -> str:
+def database_url(pg_container: PostgresContainer | None) -> str:
+    if pg_container is None:
+        url = os.environ["DATABASE_URL"]
+        if "postgresql+psycopg2" in url:
+            return url.replace("postgresql+psycopg2", "postgresql+asyncpg")
+        return url
     return pg_container.get_connection_url().replace(
         "postgresql+psycopg2", "postgresql+asyncpg"
     )
@@ -51,10 +60,12 @@ def database_url(pg_container: PostgresContainer) -> str:
 @pytest.fixture(scope="session", autouse=True)
 def env_setup(database_url: str) -> None:
     os.environ["DATABASE_URL"] = database_url
-    os.environ["ENCRYPTION_KEY"] = Fernet.generate_key().decode()
-    os.environ["JWT_SECRET"] = "test-secret"
-    os.environ["ADMIN_USERNAME"] = "admin"
-    os.environ["ADMIN_PASSWORD_HASH"] = hash_password("hunter2")
+    if not os.environ.get("ENCRYPTION_KEY"):
+        os.environ["ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+    os.environ.setdefault("JWT_SECRET", "test-secret")
+    os.environ.setdefault("ADMIN_USERNAME", "admin")
+    if not os.environ.get("ADMIN_PASSWORD_HASH"):
+        os.environ["ADMIN_PASSWORD_HASH"] = hash_password("hunter2")
     get_settings.cache_clear()
 
 
