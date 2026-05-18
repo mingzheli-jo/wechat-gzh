@@ -3951,7 +3951,7 @@ git commit -m "feat(image-posts/ui): detail page with Canvas preview + push"
 
 ## Task 18: 阶段 1 端到端回归 + 文档收尾
 
-- [ ] **Step 1: 后端全套**
+- [x] **Step 1: 后端全套**
 
 ```bash
 cd backend
@@ -3962,21 +3962,21 @@ uv run pytest
 
 预期：ruff 干净，mypy 对相关模块干净（不要求全仓库 mypy 干净——project mypy reality），pytest 全绿。
 
-- [ ] **Step 2: 前端**
+- [x] **Step 2: 前端**
 
 ```bash
 cd frontend
 pnpm build
 ```
 
-- [ ] **Step 3: 推送**
+- [x] **Step 3: 推送**
 
 ```bash
 cd ..
 git push origin master
 ```
 
-- [ ] **Step 4: 标记 plan 阶段 1 完成**
+- [x] **Step 4: 标记 plan 阶段 1 完成**
 
 到此为止，**阶段 1 MVP 全部跑通**——可以填表单、生成、预览、推送。下面进入阶段 2（图库复用）。
 
