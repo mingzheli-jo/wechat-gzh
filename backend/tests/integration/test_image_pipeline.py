@@ -93,7 +93,7 @@ async def test_generate_image_post_two_panel(
     db_session.add(post)
     await db_session.commit()
 
-    async with respx.mock() as mock:
+    async with respx.mock(assert_all_called=True) as mock:
         # mock doubao - returns 2 image URLs
         mock.post("https://ark.test/api/v3/images/generations").mock(
             return_value=httpx.Response(

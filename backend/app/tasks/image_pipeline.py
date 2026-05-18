@@ -36,14 +36,24 @@ async def _ensure_registry(session: AsyncSession) -> None:
 
 
 def _parse_json_safe(content: str) -> dict[str, Any]:
-    """Strip code fences if any then json.loads."""
-    s = content.strip()
-    if s.startswith("```"):
-        s = s.strip("`")
-        if s.startswith("json"):
-            s = s[4:]
-        s = s.strip()
-    return json.loads(s)  # type: ignore[no-any-return]
+    """Best-effort JSON parse: try direct, then fall back to the first {...} span.
+
+    Aligns with ``app.reviewer.compliance._parse_json_safe`` — strip-by-char on
+    backticks is brittle when the model returns ``````` fences
+    or other framing chars.
+    """
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError:
+        start = content.find("{")
+        end = content.rfind("}")
+        if start >= 0 and end > start:
+            parsed = json.loads(content[start : end + 1])
+        else:
+            raise
+    if not isinstance(parsed, dict):
+        raise ValueError(f"expected JSON object, got {type(parsed).__name__}")
+    return parsed
 
 
 async def _download_to_local(url: str, target_dir: Path) -> Path:
