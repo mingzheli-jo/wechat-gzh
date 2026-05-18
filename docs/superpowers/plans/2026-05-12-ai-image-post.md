@@ -3083,7 +3083,7 @@ git commit -m "feat(image-assets): GET routes + file response for thumbnails"
 - Modify: `frontend/src/App.tsx`
 - Create: `frontend/src/api/image-posts.ts`
 
-- [ ] **Step 1: 写 API client**
+- [x] **Step 1: 写 API client**
 
 `frontend/src/api/image-posts.ts`：
 
@@ -3165,7 +3165,7 @@ export const imageAssetsApi = {
 };
 ```
 
-- [ ] **Step 2: 修改 App.tsx 加路由 + 顶部导航**
+- [x] **Step 2: 修改 App.tsx 加路由 + 顶部导航**
 
 参考现有 App.tsx 结构（找到 NavLink 列表 + Routes 列表）。在 NavLink 列表（草稿 之后）追加：
 
@@ -3209,7 +3209,7 @@ export default function ImageAssets() {
 EOF
 ```
 
-- [ ] **Step 3: build 验证**
+- [x] **Step 3: build 验证**
 
 ```bash
 cd frontend
@@ -3218,7 +3218,7 @@ pnpm build
 
 预期：通过。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add frontend/src/api/image-posts.ts frontend/src/App.tsx \
