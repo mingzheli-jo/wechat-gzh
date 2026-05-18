@@ -5,6 +5,7 @@ import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from celery.schedules import crontab  # type: ignore[import-untyped]
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -133,5 +134,11 @@ celery_app.conf.beat_schedule = {
     "reset-stuck-hourly": {
         "task": "app.tasks.maintenance.reset_stuck",
         "schedule": 60 * 60,
+    },
+    "sync-stats-daily": {
+        "task": "app.tasks.stats.sync_all_accounts_stats",
+        "schedule": crontab(
+            hour=get_settings().stats_daily_cron_hour, minute=0
+        ),
     },
 }
