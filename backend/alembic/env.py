@@ -17,6 +17,7 @@ from app.db.base import Base
 from app.drafts.models import Draft, ReviewReport  # noqa: F401
 from app.images.models import Image  # noqa: F401
 from app.library.models import LibraryItem  # noqa: F401
+from app.stats.models import WechatArticle  # noqa: F401
 from app.tasks.models import TaskRecord  # noqa: F401
 
 config = context.config

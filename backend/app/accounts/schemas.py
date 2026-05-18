@@ -38,6 +38,10 @@ class AccountOut(BaseModel):
     default_thumb_media_id: str | None
     character_reference_path: str | None = None
     character_reference_updated_at: datetime | None = None
+    follower_count: int
+    new_follow_yesterday: int
+    cancel_follow_yesterday: int
+    stats_synced_at: datetime | None
     is_active: bool
     created_at: datetime
     updated_at: datetime
