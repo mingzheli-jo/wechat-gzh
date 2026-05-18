@@ -2619,7 +2619,7 @@ git commit -m "feat(image-posts): CRUD routes + trigger generate task"
 - Modify: `backend/app/image_posts/routes.py`
 - Modify: `backend/tests/integration/test_image_posts_routes.py`
 
-- [ ] **Step 1: 追加失败测试**
+- [x] **Step 1: 追加失败测试**
 
 在 `tests/integration/test_image_posts_routes.py` 末尾追加：
 
@@ -2733,7 +2733,7 @@ async def test_push_rejects_non_generated_status(auth_client, db_session, tmp_pa
     assert r.status_code == 409
 ```
 
-- [ ] **Step 2: 跑确认 FAIL**
+- [x] **Step 2: 跑确认 FAIL**
 
 ```bash
 cd backend
@@ -2742,7 +2742,7 @@ uv run pytest tests/integration/test_image_posts_routes.py -k "regenerate or pus
 
 预期：4 条 FAIL。
 
-- [ ] **Step 3: 实现 3 个新路由**
+- [x] **Step 3: 实现 3 个新路由**
 
 在 `app/image_posts/routes.py` 末尾追加（需要新 import）：
 
@@ -2842,7 +2842,7 @@ async def push(
     return _post_to_out(obj)
 ```
 
-- [ ] **Step 4: 跑测试确认 PASS**
+- [x] **Step 4: 跑测试确认 PASS**
 
 ```bash
 uv run pytest tests/integration/test_image_posts_routes.py -v
@@ -2850,14 +2850,14 @@ uv run pytest tests/integration/test_image_posts_routes.py -v
 
 预期：10 条都 PASS。
 
-- [ ] **Step 5: lint / type**
+- [x] **Step 5: lint / type**
 
 ```bash
 uv run ruff check app/image_posts/routes.py
 uv run mypy app/image_posts/routes.py
 ```
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add backend/app/image_posts/routes.py backend/tests/integration/test_image_posts_routes.py
