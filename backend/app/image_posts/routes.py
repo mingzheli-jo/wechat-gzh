@@ -7,6 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.accounts import service as account_service
+from app.ai_providers.base import Message
+from app.ai_providers.registry import RegistryError, get_registry
 from app.api.deps import get_db
 from app.auth.dependencies import get_current_username
 from app.image_posts import service
@@ -14,6 +16,7 @@ from app.image_posts.models import (
     ImageAsset,
     ImagePost,
     ImagePostStatus,
+    ImagePostTemplate,
 )
 from app.image_posts.schemas import (
     ImagePostCreate,
@@ -23,6 +26,7 @@ from app.image_posts.schemas import (
     ImagePostUpdate,
 )
 from app.image_posts.templates import TEMPLATES
+from app.tasks.image_pipeline import _ensure_registry, _parse_json_safe
 
 router = APIRouter(prefix="/image-posts", tags=["image-posts"])
 
@@ -157,3 +161,86 @@ async def delete(
         Path(obj.composed_image_path).unlink(missing_ok=True)
     await db.delete(obj)
     await db.commit()
+
+
+@router.post("/{post_id}/regenerate-captions", response_model=ImagePostDetail)
+async def regenerate_captions(
+    post_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_current_username),
+) -> ImagePostDetail:
+    obj = await service.get_image_post(db, post_id)
+    if obj is None:
+        raise HTTPException(404, "ImagePost not found")
+
+    template = TEMPLATES[ImagePostTemplate(obj.template)]
+    await _ensure_registry(db)
+    try:
+        writer, model = get_registry().role("writer")
+    except RegistryError as exc:
+        raise HTTPException(500, f"AI role binding error: {exc}") from exc
+
+    prompt = template.caption_prompt_template.format(
+        topic=obj.topic, tone=obj.tone or "通用",
+    )
+    chat_result = await writer.chat(
+        [Message(role="user", content=prompt)],
+        model=model, temperature=0.8, json_mode=True,
+    )
+    parsed = _parse_json_safe(chat_result.content)
+    obj.captions = parsed["captions"]
+    obj.panel_prompts = parsed["scene_prompts"]
+    await db.commit()
+    await db.refresh(obj)
+    return _post_to_detail(obj)
+
+
+@router.post("/{post_id}/regenerate", response_model=ImagePostOut, status_code=202)
+async def regenerate(
+    post_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_current_username),
+) -> ImagePostOut:
+    obj = await service.get_image_post(db, post_id)
+    if obj is None:
+        raise HTTPException(404, "ImagePost not found")
+    if obj.status in (
+        ImagePostStatus.generating,
+        ImagePostStatus.composing,
+        ImagePostStatus.pushing,
+    ):
+        raise HTTPException(409, "进行中的图片草稿不能重新生成")
+    obj.status = ImagePostStatus.pending
+    obj.error_msg = None
+    # NOTE: composed_image_path is cleared from the DB record so the UI
+    # no longer shows a stale preview, but the on-disk file is intentionally
+    # preserved — re-generating will overwrite it, and premature deletion
+    # would lose the file if the new generation fails before composing.
+    obj.composed_image_path = None
+    await db.commit()
+    await db.refresh(obj)
+    from app.tasks.image_pipeline import generate_image_post
+    generate_image_post.delay(str(obj.id))
+    return _post_to_out(obj)
+
+
+@router.post("/{post_id}/push-to-wechat", response_model=ImagePostOut, status_code=202)
+async def push(
+    post_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_current_username),
+) -> ImagePostOut:
+    obj = await service.get_image_post(db, post_id)
+    if obj is None:
+        raise HTTPException(404, "ImagePost not found")
+    if obj.status not in (ImagePostStatus.generated, ImagePostStatus.failed):
+        raise HTTPException(409, f"当前状态 {obj.status} 不支持推送")
+    if not obj.captions:
+        raise HTTPException(400, "缺少文案，无法推送")
+    if obj.status == ImagePostStatus.failed:
+        obj.error_msg = None
+        await db.commit()
+        await db.refresh(obj)
+    from app.tasks.image_pipeline import compose_and_push_image_post
+    compose_and_push_image_post.delay(str(obj.id))
+    return _post_to_out(obj)
