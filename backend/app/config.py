@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     image_storage_dir: str = "/data/images"
     rewrite_batch_max: int = Field(default=20, ge=1, le=200)
     draft_max_regenerations: int = Field(default=5, ge=1, le=50)
+    stats_backfill_days: int = Field(default=30, ge=7, le=90)
+    stats_daily_cron_hour: int = Field(default=3, ge=0, le=23)
 
     # AI 图像生成（豆包 Seedream）
     doubao_api_key: str = ""
