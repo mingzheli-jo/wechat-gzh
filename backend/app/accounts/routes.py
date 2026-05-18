@@ -1,8 +1,10 @@
+import mimetypes
 import tempfile
 import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.accounts import service
@@ -196,3 +198,26 @@ async def clear_character_reference(
     await db.commit()
     await db.refresh(obj)
     return AccountOut.model_validate(obj)
+
+
+@router.get("/{account_id}/character-reference/file")
+async def get_character_reference_file(
+    account_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_current_username),
+) -> FileResponse:
+    obj = await service.get_account(db, account_id)
+    if obj is None:
+        raise HTTPException(404, "Account not found")
+    if not obj.character_reference_path:
+        raise HTTPException(404, "No character reference uploaded")
+    p = Path(obj.character_reference_path).resolve()
+    storage_root = Path(get_settings().image_storage_dir).resolve()
+    try:
+        p.relative_to(storage_root)
+    except ValueError as exc:
+        raise HTTPException(403, "Forbidden") from exc
+    if not p.exists():
+        raise HTTPException(404, "File missing")
+    guessed, _enc = mimetypes.guess_type(str(p))
+    return FileResponse(p, media_type=guessed or "application/octet-stream")

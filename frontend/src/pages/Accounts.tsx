@@ -22,6 +22,8 @@ type Account = {
   content_prompt: string | null;
   style_desc: string | null;
   default_thumb_media_id: string | null;
+  character_reference_path: string | null;
+  character_reference_updated_at: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -244,6 +246,195 @@ function DefaultCoverSection({
   );
 }
 
+// ---- Character Reference Section (edit mode only) ----
+
+interface CharacterReferenceSectionProps {
+  accountId: string;
+  currentPath: string | null;
+  currentUpdatedAt: string | null;
+  onChanged: (path: string | null, updatedAt: string | null) => void;
+}
+
+function CharacterReferenceSection({
+  accountId,
+  currentPath,
+  currentUpdatedAt,
+  onChanged,
+}: CharacterReferenceSectionProps) {
+  const [file, setFile] = useState<File | null>(null);
+  const [feedback, setFeedback] = useState<
+    { kind: "success" | "error"; msg: string } | null
+  >(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const upload = useMutation({
+    mutationFn: async () => {
+      if (!file) throw new Error("未选择文件");
+      const fd = new FormData();
+      fd.append("file", file);
+      return api.post<Account>(
+        `/accounts/${accountId}/character-reference`,
+        fd,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
+    },
+    onSuccess: (resp) => {
+      onChanged(
+        resp.data.character_reference_path,
+        resp.data.character_reference_updated_at,
+      );
+      setFile(null);
+      setPreviewUrl(null);
+      setFeedback({ kind: "success", msg: "上传成功" });
+    },
+    onError: (err: unknown) => {
+      const detail =
+        (err as { response?: { data?: { detail?: string } } }).response?.data
+          ?.detail ?? "上传失败";
+      setFeedback({ kind: "error", msg: detail });
+    },
+  });
+
+  const clear = useMutation({
+    mutationFn: async () =>
+      api.delete<Account>(`/accounts/${accountId}/character-reference`),
+    onSuccess: (resp) => {
+      onChanged(
+        resp.data.character_reference_path,
+        resp.data.character_reference_updated_at,
+      );
+      setFeedback({ kind: "success", msg: "已清除角色参考图" });
+    },
+  });
+
+  function onPick(f: File | null) {
+    setFile(f);
+    setFeedback(null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(f ? URL.createObjectURL(f) : null);
+  }
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "var(--space-2)",
+        padding: "var(--space-3)",
+        backgroundColor: "var(--color-surface-2)",
+        borderRadius: "var(--radius-md)",
+      }}
+    >
+      <EyebrowLabel>角色参考图（AI 图片生成时保持角色一致）</EyebrowLabel>
+      <p
+        style={{
+          margin: 0,
+          fontSize: "var(--text-xs)",
+          color: "var(--color-ink-3)",
+        }}
+      >
+        AI 场景图功能会以此图作为角色参考，保证多张图人物形象一致。建议正面清晰半身像。
+      </p>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "var(--space-2)",
+          fontSize: "var(--text-sm)",
+        }}
+      >
+        <span style={{ color: "var(--color-ink-2)" }}>状态：</span>
+        {currentPath ? (
+          <>
+            <Badge variant="outline">已配置</Badge>
+            {currentUpdatedAt && (
+              <span
+                className="mono"
+                style={{
+                  fontSize: "var(--text-xs)",
+                  color: "var(--color-ink-3)",
+                }}
+              >
+                更新于 {new Date(currentUpdatedAt).toLocaleDateString()}
+              </span>
+            )}
+          </>
+        ) : (
+          <Badge variant="outline">未配置</Badge>
+        )}
+      </div>
+
+      {previewUrl && (
+        <img
+          src={previewUrl}
+          alt="预览"
+          style={{
+            maxWidth: "160px",
+            maxHeight: "160px",
+            borderRadius: "var(--radius-md)",
+            objectFit: "cover",
+            border: "1px solid var(--color-surface-3)",
+          }}
+        />
+      )}
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "var(--space-2)",
+          flexWrap: "wrap",
+        }}
+      >
+        <input
+          type="file"
+          accept="image/jpeg,image/png"
+          onChange={(e) => onPick(e.target.files?.[0] ?? null)}
+          style={{ fontSize: "var(--text-sm)" }}
+        />
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => upload.mutate()}
+          disabled={!file || upload.isPending}
+          loading={upload.isPending}
+        >
+          {upload.isPending ? "上传中…" : "上传"}
+        </Button>
+        {currentPath && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => clear.mutate()}
+            disabled={clear.isPending}
+            style={{ color: "var(--color-failed-fg)" }}
+          >
+            {clear.isPending ? "清除中…" : "清除"}
+          </Button>
+        )}
+      </div>
+
+      {feedback && (
+        <p
+          style={{
+            margin: 0,
+            fontSize: "var(--text-xs)",
+            color:
+              feedback.kind === "success"
+                ? "var(--color-done-fg)"
+                : "var(--color-failed-fg)",
+          }}
+        >
+          {feedback.msg}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ---- Account Form Modal ----
 
 interface AccountFormModalProps {
@@ -271,6 +462,12 @@ function AccountFormModal({ open, onClose, initial, onSaved }: AccountFormModalP
   const [errors, setErrors] = useState<FormErrors>({});
   const [currentMediaId, setCurrentMediaId] = useState<string | null>(
     initial?.default_thumb_media_id ?? null
+  );
+  const [charRefPath, setCharRefPath] = useState<string | null>(
+    initial?.character_reference_path ?? null
+  );
+  const [charRefUpdatedAt, setCharRefUpdatedAt] = useState<string | null>(
+    initial?.character_reference_updated_at ?? null
   );
 
   function set(field: keyof AccountFormData, value: string) {
@@ -404,6 +601,19 @@ function AccountFormModal({ open, onClose, initial, onSaved }: AccountFormModalP
             currentMediaId={currentMediaId}
             onChanged={(newId) => {
               setCurrentMediaId(newId);
+              onSaved();
+            }}
+          />
+        )}
+
+        {isEdit && initial && (
+          <CharacterReferenceSection
+            accountId={initial.id}
+            currentPath={charRefPath}
+            currentUpdatedAt={charRefUpdatedAt}
+            onChanged={(path, updatedAt) => {
+              setCharRefPath(path);
+              setCharRefUpdatedAt(updatedAt);
               onSaved();
             }}
           />
