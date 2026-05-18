@@ -1,0 +1,1 @@
+"""Image asset library routes."""
