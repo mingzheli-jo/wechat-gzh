@@ -20,22 +20,26 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    image_post_template = sa.Enum(
+    bind = op.get_bind()
+    image_post_template = postgresql.ENUM(
         "two_panel_contrast", "single_panel_caption",
         name="image_post_template",
+        create_type=False,
     )
-    image_post_status = sa.Enum(
+    image_post_status = postgresql.ENUM(
         "pending", "generating", "generated",
         "composing", "pushing", "pushed", "failed",
         name="image_post_status",
+        create_type=False,
     )
-    image_asset_source = sa.Enum(
+    image_asset_source = postgresql.ENUM(
         "ai_generated", "manual_upload",
         name="image_asset_source",
+        create_type=False,
     )
-    image_post_template.create(op.get_bind(), checkfirst=False)
-    image_post_status.create(op.get_bind(), checkfirst=False)
-    image_asset_source.create(op.get_bind(), checkfirst=False)
+    image_post_template.create(bind, checkfirst=True)
+    image_post_status.create(bind, checkfirst=True)
+    image_asset_source.create(bind, checkfirst=True)
 
     op.create_table(
         "image_posts",
