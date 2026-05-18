@@ -1968,7 +1968,7 @@ git commit -m "feat(image-posts): Celery generate_image_post task (LLM + Doubao)
 - Modify: `backend/app/tasks/image_pipeline.py`
 - Modify: `backend/tests/integration/test_image_pipeline.py`
 
-- [ ] **Step 1: 追加失败测试**
+- [x] **Step 1: 追加失败测试**
 
 在 `tests/integration/test_image_pipeline.py` 末尾追加：
 
@@ -2052,7 +2052,7 @@ async def _async_value(v):
     return v
 ```
 
-- [ ] **Step 2: 跑确认 FAIL**
+- [x] **Step 2: 跑确认 FAIL**
 
 ```bash
 cd backend
@@ -2061,7 +2061,7 @@ uv run pytest tests/integration/test_image_pipeline.py::test_compose_and_push_tw
 
 预期：AttributeError（`_compose_and_push_with_session` 不存在）。
 
-- [ ] **Step 3: 扩展 image_pipeline.py**
+- [x] **Step 3: 扩展 image_pipeline.py**
 
 在 `app/tasks/image_pipeline.py` 末尾追加（确保 `from app.wechat.token import get_access_token` 和 `from app.wechat.material import upload_image` 已 import；`from app.wechat.draft import push_draft, WeChatDraftError` 也要 import）：
 
@@ -2196,7 +2196,7 @@ def compose_and_push_image_post(self: Any, post_id: str) -> None:
     asyncio.run(_do_compose_and_push(uuid.UUID(post_id)))
 ```
 
-- [ ] **Step 4: 跑测试确认 PASS**
+- [x] **Step 4: 跑测试确认 PASS**
 
 ```bash
 uv run pytest tests/integration/test_image_pipeline.py -v
@@ -2204,14 +2204,14 @@ uv run pytest tests/integration/test_image_pipeline.py -v
 
 预期：2 条都 PASS。
 
-- [ ] **Step 5: lint / type**
+- [x] **Step 5: lint / type**
 
 ```bash
 uv run ruff check app/tasks/image_pipeline.py
 uv run mypy app/tasks/image_pipeline.py
 ```
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add backend/app/tasks/image_pipeline.py backend/tests/integration/test_image_pipeline.py
