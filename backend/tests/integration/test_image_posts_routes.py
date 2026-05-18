@@ -287,6 +287,7 @@ async def test_create_rejects_foreign_asset(auth_client, db_session, tmp_path):
 
 async def test_regenerate_captions_route(auth_client, db_session, tmp_path, monkeypatch):
     import json as _json
+
     from app.ai_providers.base import ChatResult, TokenUsage
 
     async def fake_chat(messages, *, model, temperature, json_mode=False, **k):
@@ -338,8 +339,9 @@ async def test_regenerate_route_resets_status(auth_client, db_session, tmp_path)
     )
     post_id = create.json()["id"]
     # Force into failed
-    from app.image_posts.models import ImagePost, ImagePostStatus
     from sqlalchemy import select
+
+    from app.image_posts.models import ImagePost, ImagePostStatus
     obj = (await db_session.execute(
         select(ImagePost).where(ImagePost.id == uuid.UUID(post_id))
     )).scalar_one()
@@ -364,8 +366,9 @@ async def test_push_route_dispatches_task(auth_client, db_session, tmp_path):
     )
     post_id = create.json()["id"]
     # Force status=generated
-    from app.image_posts.models import ImagePost, ImagePostStatus
     from sqlalchemy import select
+
+    from app.image_posts.models import ImagePost, ImagePostStatus
     obj = (await db_session.execute(
         select(ImagePost).where(ImagePost.id == uuid.UUID(post_id))
     )).scalar_one()
@@ -392,3 +395,30 @@ async def test_push_rejects_non_generated_status(auth_client, db_session, tmp_pa
     # status is "pending" by default
     r = await auth_client.post(f"/api/image-posts/{post_id}/push-to-wechat")
     assert r.status_code == 409
+
+
+async def test_regenerate_captions_rejects_in_flight(auth_client, db_session, tmp_path):
+    """Caption rewrite must not race a worker that's mid-generation."""
+    from sqlalchemy import select
+
+    from app.image_posts.models import ImagePost, ImagePostStatus
+
+    account = await _seed_account_with_ref(db_session, tmp_path)
+    create = await auth_client.post(
+        "/api/image-posts",
+        json={
+            "account_id": str(account.id),
+            "template": "two_panel_contrast",
+            "topic": "t",
+        },
+    )
+    post_id = create.json()["id"]
+    obj = (await db_session.execute(
+        select(ImagePost).where(ImagePost.id == uuid.UUID(post_id))
+    )).scalar_one()
+    obj.status = ImagePostStatus.generating
+    await db_session.commit()
+
+    r = await auth_client.post(f"/api/image-posts/{post_id}/regenerate-captions")
+    assert r.status_code == 409
+    assert "进行中" in r.json()["detail"]

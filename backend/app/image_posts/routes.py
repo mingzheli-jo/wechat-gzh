@@ -1,4 +1,5 @@
 """Image post API routes."""
+import json
 import uuid
 from pathlib import Path
 
@@ -172,6 +173,14 @@ async def regenerate_captions(
     obj = await service.get_image_post(db, post_id)
     if obj is None:
         raise HTTPException(404, "ImagePost not found")
+    # Block edits while a worker is mid-flight on this row, otherwise the
+    # worker can stomp our captions (or vice versa) on the same commit.
+    if obj.status in (
+        ImagePostStatus.generating,
+        ImagePostStatus.composing,
+        ImagePostStatus.pushing,
+    ):
+        raise HTTPException(409, "进行中的图片草稿不能改写文案")
 
     template = TEMPLATES[ImagePostTemplate(obj.template)]
     await _ensure_registry(db)
@@ -187,9 +196,16 @@ async def regenerate_captions(
         [Message(role="user", content=prompt)],
         model=model, temperature=0.8, json_mode=True,
     )
-    parsed = _parse_json_safe(chat_result.content)
-    obj.captions = parsed["captions"]
-    obj.panel_prompts = parsed["scene_prompts"]
+    try:
+        parsed = _parse_json_safe(chat_result.content)
+        captions = parsed["captions"]
+        scene_prompts = parsed["scene_prompts"]
+    except (json.JSONDecodeError, ValueError, KeyError, TypeError) as exc:
+        raise HTTPException(
+            502, f"AI 返回了无效的文案 JSON: {type(exc).__name__}"
+        ) from exc
+    obj.captions = captions
+    obj.panel_prompts = scene_prompts
     await db.commit()
     await db.refresh(obj)
     return _post_to_detail(obj)
