@@ -1,30 +1,36 @@
 import { api } from "./client";
 
-export type ImagePostTemplate = "wechat_image_text";
+export type ImagePostTemplate = "two_panel_contrast" | "single_panel_caption";
 
 export type ImagePostStatus =
   | "pending"
   | "generating"
-  | "ready"
-  | "failed"
-  | "publishing"
-  | "published";
+  | "generated"
+  | "composing"
+  | "pushing"
+  | "pushed"
+  | "failed";
 
 export interface ImagePost {
   id: string;
-  title: string | null;
+  account_id: string;
   template: ImagePostTemplate;
+  topic: string;
+  tone: string | null;
   status: ImagePostStatus;
   error_msg: string | null;
+  wechat_pushed_at: string | null;
   created_at: string;
-  updated_at: string;
 }
 
 export interface ImagePostDetail extends ImagePost {
-  html_content: string | null;
-  style_hint: string | null;
-  account_id: string | null;
-  wechat_media_id: string | null;
+  captions: string[] | null;
+  panel_prompts: string[] | null;
+  asset_ids: string[] | null;
+  panel_asset_ids: string[] | null;
+  composed_image_path: string | null;
+  wechat_thumb_media_id: string | null;
+  wechat_draft_media_id: string | null;
 }
 
 export interface ImagePostListPage {
@@ -34,9 +40,12 @@ export interface ImagePostListPage {
 
 export interface ImageAsset {
   id: string;
-  image_post_id: string;
-  sort_order: number;
-  alt_text: string | null;
+  account_id: string;
+  image_path: string;
+  scene_prompt: string | null;
+  tags: string[] | null;
+  source: string;
+  used_count: number;
   created_at: string;
 }
 
@@ -46,40 +55,53 @@ export interface ImageAssetListPage {
 }
 
 export const imagePostsApi = {
-  list(params?: { page?: number; page_size?: number; status?: ImagePostStatus }) {
+  list(params?: {
+    account_id?: string;
+    status?: ImagePostStatus;
+    page?: number;
+    page_size?: number;
+  }) {
     return api.get<ImagePostListPage>("/image-posts", { params }).then((r) => r.data);
   },
   get(id: string) {
     return api.get<ImagePostDetail>(`/image-posts/${id}`).then((r) => r.data);
   },
-  create(body: { title?: string; template?: ImagePostTemplate; style_hint?: string }) {
-    return api.post<ImagePostDetail>("/image-posts", body).then((r) => r.data);
+  create(body: {
+    account_id: string;
+    template: ImagePostTemplate;
+    topic: string;
+    tone?: string | null;
+    panel_asset_ids?: string[] | null;
+  }) {
+    return api.post<ImagePost>("/image-posts", body).then((r) => r.data);
   },
-  update(id: string, body: { title?: string; style_hint?: string }) {
+  patch(id: string, body: { captions: string[] }) {
     return api.patch<ImagePostDetail>(`/image-posts/${id}`, body).then((r) => r.data);
+  },
+  regenerateCaptions(id: string) {
+    return api
+      .post<ImagePostDetail>(`/image-posts/${id}/regenerate-captions`)
+      .then((r) => r.data);
+  },
+  regenerate(id: string) {
+    return api.post<ImagePost>(`/image-posts/${id}/regenerate`).then((r) => r.data);
+  },
+  push(id: string) {
+    return api.post<ImagePost>(`/image-posts/${id}/push-to-wechat`).then((r) => r.data);
   },
   delete(id: string) {
     return api.delete(`/image-posts/${id}`);
   },
-  generate(id: string) {
-    return api.post<ImagePostDetail>(`/image-posts/${id}/generate`, {}).then((r) => r.data);
-  },
-  publish(id: string, body: { account_id: string }) {
-    return api.post<ImagePostDetail>(`/image-posts/${id}/publish`, body).then((r) => r.data);
-  },
 };
 
 export const imageAssetsApi = {
-  list(imagePostId: string, params?: { page?: number; page_size?: number }) {
+  list(params: { account_id: string; page?: number; page_size?: number }) {
     return api
-      .get<ImageAssetListPage>(`/image-posts/${imagePostId}/assets`, { params })
+      .get<ImageAssetListPage>("/image-assets", { params })
       .then((r) => r.data);
   },
   get(id: string) {
     return api.get<ImageAsset>(`/image-assets/${id}`).then((r) => r.data);
-  },
-  delete(id: string) {
-    return api.delete(`/image-assets/${id}`);
   },
   fileUrl(id: string) {
     return `/api/image-assets/${id}/file`;
