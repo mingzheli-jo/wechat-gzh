@@ -3572,14 +3572,14 @@ git commit -m "feat(image-posts/ui): list page + create form modal"
 - Modify: `frontend/public/index.html` 或入口 `main.tsx` 加 @font-face
 - Create: `frontend/public/fonts/SourceHanSansSC-Bold.otf`（复制后端的）
 
-- [ ] **Step 1: 复制字体到前端 public/**
+- [x] **Step 1: 复制字体到前端 public/**
 
 ```bash
 mkdir -p frontend/public/fonts
 cp backend/app/image_composer/fonts/SourceHanSansSC-Bold.otf frontend/public/fonts/
 ```
 
-- [ ] **Step 2: 加 @font-face 到 index.css 或 main.tsx**
+- [x] **Step 2: 加 @font-face 到 index.css 或 main.tsx**
 
 在 `frontend/src/index.css` 顶部追加：
 
@@ -3592,7 +3592,7 @@ cp backend/app/image_composer/fonts/SourceHanSansSC-Bold.otf frontend/public/fon
 }
 ```
 
-- [ ] **Step 3: 实现 CompositionCanvas**
+- [x] **Step 3: 实现 CompositionCanvas**
 
 `frontend/src/components/image-posts/CompositionCanvas.tsx`：
 
@@ -3714,7 +3714,7 @@ export function CompositionCanvas({
 }
 ```
 
-- [ ] **Step 4: build**
+- [x] **Step 4: build**
 
 ```bash
 cd frontend
@@ -3723,7 +3723,7 @@ pnpm build
 
 预期：通过。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add frontend/public/fonts/ frontend/src/index.css \
