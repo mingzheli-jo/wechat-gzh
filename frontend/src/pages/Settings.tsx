@@ -18,7 +18,7 @@ type Provider = {
   enabled: boolean;
 };
 
-type Role = "writer" | "reviewer" | "lite";
+type Role = "writer" | "reviewer" | "lite" | "image";
 
 type Binding = {
   role: Role;
@@ -44,12 +44,14 @@ const ROLE_LABELS: Record<Role, string> = {
   writer: "改写",
   reviewer: "审核",
   lite: "轻量",
+  image: "图像生成",
 };
 
 const ROLE_DESCRIPTIONS: Record<Role, string> = {
   writer: "负责文章改写的主力模型",
   reviewer: "负责内容审核与评分",
   lite: "轻量任务（如标签生成）",
+  image: "AI 场景图生成（如 Doubao Seedream）",
 };
 
 // ---- Provider form ----
@@ -357,12 +359,13 @@ type UsageSummary = {
   total_cost: number;
 };
 
-const ROLE_STACK_ORDER = ["writer", "reviewer", "lite", "unknown"] as const;
+const ROLE_STACK_ORDER = ["writer", "reviewer", "lite", "image", "unknown"] as const;
 
 const ROLE_COLORS: Record<string, string> = {
   writer: "var(--color-ink)",
   reviewer: "var(--color-ink-3)",
   lite: "var(--color-ink-4)",
+  image: "var(--color-ink-2)",
   unknown: "var(--color-surface-4)",
 };
 
@@ -370,6 +373,7 @@ const ROLE_DASH_LABELS: Record<string, string> = {
   writer: "改写",
   reviewer: "审核",
   lite: "轻量",
+  image: "图像",
   unknown: "未知",
 };
 
@@ -1134,7 +1138,7 @@ export default function Settings() {
         </div>
 
         <div style={{ display: "flex", flexDirection: "column" }}>
-          {(["writer", "reviewer", "lite"] as Role[]).map((role) => {
+          {(["writer", "reviewer", "lite", "image"] as Role[]).map((role) => {
             const current = bindings.data?.find((b) => b.role === role);
             return (
               <RoleRow

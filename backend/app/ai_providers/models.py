@@ -46,6 +46,7 @@ class Role(enum.StrEnum):
     writer = "writer"
     reviewer = "reviewer"
     lite = "lite"
+    image = "image"
 
 
 class RoleBinding(Base):

@@ -144,7 +144,7 @@ async def _generate_with_session(
                     .values(used_count=ImageAsset.used_count + 1)
                 )
         else:
-            provider = get_image_provider()
+            provider = await get_image_provider(session)
             ref_bytes = Path(account.character_reference_path).read_bytes()
             ref_b64 = base64.b64encode(ref_bytes).decode()
             settings = get_settings()
