@@ -9,7 +9,7 @@ wechat.azhefuye.online {
         -Server
     }
 
-    reverse_proxy web:80
+    reverse_proxy wechat-batch-rewriter-web-1:80
 
     log {
         output file /data/access.log

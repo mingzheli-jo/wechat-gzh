@@ -18,21 +18,13 @@ services:
   web:
     restart: unless-stopped
     ports: !reset []
+    networks:
+      - default
+      - edge
 
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - web
-      - api
-
-volumes:
-  caddy_data:
-  caddy_config:
+# 入口反代已迁移到独立 edge（见 mili-shouzhang 仓库 /infra/edge）。
+# 本项目不再自带 caddy、不占用 80/443；web 接入外部 edge 网络，
+# 由 edge-caddy 按容器名 wechat-batch-rewriter-web-1:80 反代。
+networks:
+  edge:
+    external: true
