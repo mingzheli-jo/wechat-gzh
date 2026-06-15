@@ -160,7 +160,13 @@ export default function Drafts() {
   const active = useQuery({
     queryKey: ["drafts", "active", pages.active],
     queryFn: () => fetchPage("active", pages.active),
-    refetchInterval: 5000,
+    refetchInterval: (query) => {
+      const items = query.state.data?.items ?? [];
+      const hasActive = items.some(
+        (d) => d.status === "draft" || d.status === "reviewing",
+      );
+      return hasActive ? 5000 : false;
+    },
   });
   const done = useQuery({
     queryKey: ["drafts", "done", pages.done],

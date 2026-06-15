@@ -1,5 +1,4 @@
 import pytest
-from cryptography.fernet import InvalidToken
 
 from app.db.encryption import EncryptedString, decrypt_value, encrypt_value, generate_key
 
@@ -18,8 +17,9 @@ def test_encrypt_then_decrypt_roundtrip():
 
 
 def test_decrypt_wrong_key_raises():
+    # 错误的 key / 损坏的密文应抛出清晰的 ValueError，而不是泄漏底层 InvalidToken
     cipher = encrypt_value("abc", key=generate_key())
-    with pytest.raises(InvalidToken):
+    with pytest.raises(ValueError):
         decrypt_value(cipher, key=generate_key())
 
 

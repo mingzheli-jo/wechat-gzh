@@ -30,7 +30,7 @@ class Draft(Base):
         nullable=False,
     )
     account_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=False, index=True
     )
     title: Mapped[str | None] = mapped_column(String(500), nullable=True)
     content_html: Mapped[str | None] = mapped_column(Text, nullable=True)

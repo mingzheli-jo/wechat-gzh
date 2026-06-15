@@ -3,7 +3,7 @@ import asyncio
 import logging
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -59,6 +59,16 @@ async def _rewrite_with_session(
     ).scalar_one_or_none()
     if draft is None:
         return
+    # 幂等守卫：仅对处于 `draft` 状态的草稿执行改写。任务因 acks_late 重投时，
+    # 已进入 reviewing/reviewed/published/failed 的草稿不再重复改写（避免重复调用
+    # LLM 烧钱、重复产出）。需要重跑请走 reset_for_rewrite（会把状态重置为 draft）。
+    if draft.status != DraftStatus.draft:
+        logger.info(
+            "skip rewrite for draft %s: status=%s (idempotency guard)",
+            draft.id,
+            draft.status,
+        )
+        return
     item = (
         await session.execute(
             select(LibraryItem).where(LibraryItem.id == draft.library_item_id)
@@ -104,7 +114,10 @@ async def _rewrite_with_session(
         title_result = await writer.chat(
             title_msgs, model=writer_model, temperature=0.7
         )
-        draft.title = title_result.content.strip()
+        new_title = title_result.content.strip()
+        if not new_title:
+            raise ValueError("改写返回空标题，已中止")
+        draft.title = new_title
         await record_usage(
             session,
             provider_name=writer.name,
@@ -128,6 +141,8 @@ async def _rewrite_with_session(
             temperature=0.7,
             max_tokens=4000,
         )
+        if not (content_result.content or "").strip():
+            raise ValueError("改写返回空正文，已中止")
         draft.content_html = render_markdown(content_result.content)
         draft.status = DraftStatus.reviewing
         await session.commit()
@@ -169,9 +184,29 @@ async def _rewrite_with_session(
                 content_excerpt=(content_result.content or "")[:1500],
             ),
         ]
-        comp, orig, qual, cb = await asyncio.gather(
-            *review_tasks, return_exceptions=False
-        )
+        # 容错：单个审核维度失败不应让整篇改写报废（否则草稿卡在 failed 且无报告，
+        # 用户无法推送）。失败维度用占位结果补齐，保证 ReviewReport 一定生成。
+        results = await asyncio.gather(*review_tasks, return_exceptions=True)
+
+        def _coerce(result: Any, dim: str) -> dict[str, Any]:
+            if isinstance(result, BaseException):
+                logger.warning(
+                    "reviewer dim %s failed for draft %s: %r",
+                    dim,
+                    draft.id,
+                    result,
+                )
+                return {
+                    "score": 0,
+                    "issues": [f"{dim} 审核失败：{result}"],
+                    "error": True,
+                }
+            return cast(dict[str, Any], result)
+
+        comp = _coerce(results[0], "compliance")
+        orig = _coerce(results[1], "originality")
+        qual = _coerce(results[2], "quality")
+        cb = _coerce(results[3], "clickbait")
         reports: dict[str, Any] = {
             "compliance": comp,
             "originality": orig,

@@ -3,12 +3,18 @@ from typing import Any
 from openai import AsyncOpenAI
 
 from app.ai_providers.base import BaseProvider, ChatResult, Message, TokenUsage
+from app.config import get_settings
 
 
 class OpenAICompatProvider(BaseProvider):
     def __init__(self, *, name: str, api_key: str, base_url: str) -> None:
         self.name = name
-        self._client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+        # 设置请求超时，避免外部 AI 服务无响应时任务长期挂起
+        self._client = AsyncOpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            timeout=get_settings().llm_timeout_seconds,
+        )
 
     async def chat(
         self,

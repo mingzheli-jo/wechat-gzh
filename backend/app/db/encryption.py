@@ -1,6 +1,6 @@
 from typing import Any
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 from sqlalchemy import String, TypeDecorator
 
 from app.config import get_settings
@@ -22,7 +22,17 @@ def encrypt_value(plaintext: str, *, key: str | None = None) -> str:
 
 
 def decrypt_value(token: str, *, key: str | None = None) -> str:
-    return Fernet(_resolve_key(key)).decrypt(token.encode("utf-8")).decode("utf-8")
+    try:
+        return (
+            Fernet(_resolve_key(key))
+            .decrypt(token.encode("utf-8"))
+            .decode("utf-8")
+        )
+    except InvalidToken as exc:
+        # 数据被篡改、损坏，或 ENCRYPTION_KEY 与加密时不一致（如恢复备份后换了 key）
+        raise ValueError(
+            "解密失败：密文损坏或 ENCRYPTION_KEY 与加密时不匹配"
+        ) from exc
 
 
 class EncryptedString(TypeDecorator[str]):

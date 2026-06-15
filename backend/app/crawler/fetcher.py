@@ -1,5 +1,6 @@
 import asyncio
 import random
+from urllib.parse import urlparse
 
 import httpx
 
@@ -8,6 +9,27 @@ from app.config import get_settings
 
 class FetchError(Exception):
     pass
+
+
+def _check_url_allowed(url: str) -> None:
+    """SSRF 防护：只允许 http(s) 且 host 命中抓取白名单（默认仅微信文章域名）。
+
+    防止用户提交 http://redis:6379、http://169.254.169.254 等内网/元数据地址
+    把抓取器当作探测内网的跳板。
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise FetchError(f"unsupported URL scheme: {parsed.scheme!r}")
+    host = (parsed.hostname or "").lower()
+    if not host:
+        raise FetchError("URL missing host")
+    allowed = [
+        d.strip().lower()
+        for d in get_settings().allowed_crawl_domains.split(",")
+        if d.strip()
+    ]
+    if not any(host == d or host.endswith("." + d) for d in allowed):
+        raise FetchError(f"refused to fetch non-allowlisted host: {host!r}")
 
 
 _USER_AGENTS = [
@@ -20,6 +42,7 @@ _USER_AGENTS = [
 async def fetch_html(
     url: str, *, timeout: int | None = None, max_retries: int | None = None
 ) -> str:
+    _check_url_allowed(url)
     settings = get_settings()
     timeout = timeout or settings.crawler_timeout
     max_retries = max_retries or settings.crawler_max_retry

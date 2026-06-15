@@ -25,7 +25,7 @@ class Image(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     draft_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("drafts.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("drafts.id"), nullable=False, index=True
     )
     original_url: Mapped[str] = mapped_column(String(2048), nullable=False)
     local_path: Mapped[str | None] = mapped_column(String(500), nullable=True)

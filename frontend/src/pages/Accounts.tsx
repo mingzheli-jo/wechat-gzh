@@ -653,7 +653,10 @@ export default function Accounts() {
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) =>
       api.patch(`/accounts/${id}`, { is_active }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["accounts"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["accounts-min"] });
+    },
   });
 
   const deleteAccount = useMutation({
@@ -661,6 +664,7 @@ export default function Accounts() {
     onSuccess: () => {
       setDeleteTarget(null);
       qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["accounts-min"] });
     },
   });
 

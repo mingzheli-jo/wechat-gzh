@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import DOMPurify from "dompurify";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
 
@@ -178,6 +178,9 @@ export default function DraftDetail() {
 
   const [pushBanner, setPushBanner] = useState<PushBanner | null>(null);
   const [pollingForPublish, setPollingForPublish] = useState(false);
+  // Tracks the draft id whose data has already been synced into the local form,
+  // so background refetch polling does not clobber in-progress edits.
+  const syncedDraftId = useRef<string | undefined>(undefined);
 
   const detail = useQuery({
     queryKey: ["draft", id],
@@ -194,7 +197,17 @@ export default function DraftDetail() {
   const images = useQuery({
     queryKey: ["draft-images", id],
     queryFn: async () => (await api.get<Img[]>(`/images/by-draft/${id}`)).data,
-    refetchInterval: 5000,
+    refetchInterval: (query) => {
+      const imgs = query.state.data ?? [];
+      const hasPending = imgs.some(
+        (img) =>
+          img.status !== "uploaded" &&
+          img.status !== "replaced" &&
+          img.status !== "removed" &&
+          img.status !== "failed",
+      );
+      return hasPending ? 5000 : false;
+    },
   });
 
   const setCover = useMutation({
@@ -255,8 +268,10 @@ export default function DraftDetail() {
   }
 
   useEffect(() => {
-    if (detail.data) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local form draft state with async-loaded server data; resets when navigating to a different draft
+    if (detail.data && detail.data.id !== syncedDraftId.current) {
+      // Only sync form state when navigating to a different draft (or on first
+      // load). Background refetch polling must not clobber in-progress edits.
+      syncedDraftId.current = detail.data.id;
       setTitle(detail.data.title ?? "");
       setBody(detail.data.content_html ?? "");
     }
@@ -289,6 +304,8 @@ export default function DraftDetail() {
       api.patch(`/drafts/${id}`, { title, content_html: body }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["draft", id] });
+      qc.invalidateQueries({ queryKey: ["draft-report", id] });
+      qc.invalidateQueries({ queryKey: ["draft-images", id] });
       setSavedIndicator(true);
       setTimeout(() => setSavedIndicator(false), 2000);
     },

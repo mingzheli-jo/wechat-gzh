@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     default_reviewer_provider: str = "kimi"
     default_lite_provider: str = "deepseek"
 
+    # CORS：逗号分隔的允许来源，或 "*" 表示任意来源（为 "*" 时自动关闭凭证回显）
+    cors_origins: str = "*"
+    # 抓取器 SSRF 白名单：逗号分隔的允许 host 后缀（只放微信文章域名）
+    allowed_crawl_domains: str = "mp.weixin.qq.com,weixin.qq.com"
+    # LLM 请求超时（秒），防止外部 AI 服务挂起拖死任务
+    llm_timeout_seconds: int = 60
+
     crawler_timeout: int = 30
     crawler_max_retry: int = 3
     celery_worker_concurrency: int = 4
@@ -43,3 +50,16 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def validate_security_settings(settings: Settings) -> None:
+    """启动时校验关键安全配置，发现不安全默认值直接拒绝启动。"""
+    problems: list[str] = []
+    if not settings.jwt_secret or "change-me" in settings.jwt_secret:
+        problems.append("JWT_SECRET 未配置或仍为占位默认值（含 'change-me'）")
+    if not settings.encryption_key:
+        problems.append("ENCRYPTION_KEY 未配置")
+    if not settings.admin_password_hash:
+        problems.append("ADMIN_PASSWORD_HASH 未配置")
+    if problems:
+        raise RuntimeError("检测到不安全的配置，拒绝启动: " + "; ".join(problems))

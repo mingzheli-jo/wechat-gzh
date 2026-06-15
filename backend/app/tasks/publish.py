@@ -25,6 +25,14 @@ async def _do_publish(draft_id: uuid.UUID) -> None:
         draft = (
             await session.execute(select(Draft).where(Draft.id == draft_id))
         ).scalar_one()
+        # 幂等守卫：已成功推送的草稿不再重复推送（任务 acks_late 重投时避免在
+        # 微信草稿箱产生重复草稿）。
+        if draft.status == DraftStatus.published_to_wechat:
+            logger.info(
+                "skip publish for draft %s: already published_to_wechat",
+                draft.id,
+            )
+            return
         account = (
             await session.execute(
                 select(Account).where(Account.id == draft.account_id)
