@@ -2,6 +2,8 @@ import type { JSX, ReactNode } from "react";
 import { Link, Navigate, NavLink, Route, Routes, useNavigate } from "react-router-dom";
 
 import Accounts from "./pages/Accounts";
+import CreationDetail from "./pages/CreationDetail";
+import Creator from "./pages/Creator";
 import DraftDetail from "./pages/DraftDetail";
 import Drafts from "./pages/Drafts";
 import ImageAssets from "./pages/ImageAssets";
@@ -44,6 +46,16 @@ const NAV_PRIMARY: NavItem[] = [
       <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
         <path d="M4 2h6l3 3v9H4V2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
         <path d="M10 2v3h3" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
+    to: "/creations",
+    label: "创作",
+    icon: (
+      <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M11 2l3 3-7 7-3.5.5L4 9l7-7z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="M3 14h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -171,6 +183,8 @@ export default function App() {
       <Route path="/library" element={<Shell><Library /></Shell>} />
       <Route path="/drafts" element={<Shell><Drafts /></Shell>} />
       <Route path="/drafts/:id" element={<Shell><DraftDetail /></Shell>} />
+      <Route path="/creations" element={<Shell><Creator /></Shell>} />
+      <Route path="/creations/:id" element={<Shell><CreationDetail /></Shell>} />
       <Route path="/image-posts" element={<Shell><ImagePosts /></Shell>} />
       <Route path="/image-posts/:id" element={<Shell><ImagePostDetail /></Shell>} />
       <Route path="/image-assets" element={<Shell><ImageAssets /></Shell>} />

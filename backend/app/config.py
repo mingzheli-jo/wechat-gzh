@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     stats_backfill_days: int = Field(default=30, ge=7, le=90)
     stats_daily_cron_hour: int = Field(default=3, ge=0, le=23)
 
+    # 主题创作（基于文章库的检索式生成）
+    # 检索保留的素材篇数（喂给生成的真实文章）
+    creation_retrieval_top_k: int = Field(default=5, ge=1, le=20)
+    # 关键词检索的候选池上限
+    creation_candidate_limit: int = Field(default=30, ge=5, le=100)
+    # 候选池中额外混入的最近文章篇数（保证覆盖"近期"内容）
+    creation_recent_count: int = Field(default=10, ge=0, le=50)
+
     # AI 图像生成（豆包 Seedream）
     doubao_api_key: str = ""
     doubao_base_url: str = "https://ark.cn-beijing.volces.com/api/v3"

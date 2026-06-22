@@ -13,6 +13,7 @@ from alembic import context
 from app.accounts.models import Account  # noqa: F401
 from app.ai_providers.models import AIProvider, AIUsage, RoleBinding  # noqa: F401
 from app.config import get_settings
+from app.creator.models import ThemeCreation  # noqa: F401
 from app.db.base import Base
 from app.drafts.models import Draft, ReviewReport  # noqa: F401
 from app.images.models import Image  # noqa: F401

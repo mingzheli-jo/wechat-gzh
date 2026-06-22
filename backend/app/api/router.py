@@ -4,6 +4,7 @@ from app.accounts.routes import router as accounts_router
 from app.ai_providers.routes import router as ai_providers_router
 from app.ai_providers.usage_routes import router as usage_router
 from app.auth.routes import router as auth_router
+from app.creator.routes import router as creator_router
 from app.drafts.routes import router as drafts_router
 from app.image_assets.routes import router as image_assets_router
 from app.image_posts.routes import router as image_posts_router
@@ -24,6 +25,7 @@ api_router.include_router(accounts_router)
 api_router.include_router(library_router)
 api_router.include_router(ai_providers_router)
 api_router.include_router(drafts_router)
+api_router.include_router(creator_router)
 api_router.include_router(images_router)
 api_router.include_router(usage_router)
 api_router.include_router(image_assets_router)

@@ -11,6 +11,7 @@ celery_app = Celery(
     include=[
         "app.tasks.crawl",
         "app.tasks.rewrite",
+        "app.tasks.create",
         "app.tasks.review",
         "app.tasks.images",
         "app.tasks.publish",
@@ -26,6 +27,7 @@ celery_app.conf.update(
     task_routes={
         "app.tasks.crawl.*": {"queue": "crawl"},
         "app.tasks.rewrite.*": {"queue": "rewrite"},
+        "app.tasks.create.*": {"queue": "rewrite"},
         "app.tasks.review.*": {"queue": "review"},
         "app.tasks.images.*": {"queue": "publish"},
         "app.tasks.publish.*": {"queue": "publish"},
