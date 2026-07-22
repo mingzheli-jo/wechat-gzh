@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     image_storage_dir: str = "/data/images"
     rewrite_batch_max: int = Field(default=20, ge=1, le=200)
     draft_max_regenerations: int = Field(default=5, ge=1, le=50)
+
+    # 合规不达标时自动重写：把审核查出的违规条目回灌给写手模型重来一轮。
+    # 只看 compliance——原创度/AI 味属于风格判断，自动重跑不易收敛且费 token。
+    review_auto_fix_enabled: bool = True
+    review_auto_fix_compliance_min: int = Field(default=95, ge=0, le=100)
+    review_auto_fix_max_passes: int = Field(default=1, ge=0, le=3)
     stats_backfill_days: int = Field(default=30, ge=7, le=90)
     stats_daily_cron_hour: int = Field(default=3, ge=0, le=23)
 

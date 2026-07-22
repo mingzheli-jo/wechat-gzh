@@ -9,6 +9,16 @@ PROMPT = """你是一名公众号合规审核员。请评估以下文章是否�
 输出严格 JSON：{"score": 0-100 整数，越高越合规, "issues": ["问题1", "问题2", ...]}。
 没有问题时 issues 为空数组。score 与 issues 必须保持一致：100 表示完全合规、issues 必须为空；越多/越严重的问题对应越低 score。"""
 
+ACCOUNT_RULES_TEMPLATE = """
+
+此外，该公众号有自己的红线要求。以下是该号的写作规范，
+你只需从中提取"禁止/不许/不得/红线"类的条款，逐条检查正文是否违反，
+写作风格类要求（节奏、口吻、结构）不属于你的职责，一律忽略。
+违反账号红线的，按严重程度计入 issues 并扣分，issue 前缀写"账号红线："。
+
+【该号写作规范】
+{rules}"""
+
 
 def _strip_surrogates(value: Any) -> Any:
     """Recursively replace lone-surrogate code points inside strings.
@@ -60,11 +70,15 @@ async def review_compliance(
     title: str,
     content: str,
     sensitive_checker: SensitiveWordChecker | None = None,
+    account_rules: str = "",
 ) -> dict[str, Any]:
+    system = PROMPT
+    if account_rules.strip():
+        system += ACCOUNT_RULES_TEMPLATE.format(rules=account_rules.strip()[:3000])
     user = f"【标题】{title}\n【正文】{content[:6000]}"
     result = await provider.chat(
         [
-            Message(role="system", content=PROMPT),
+            Message(role="system", content=system),
             Message(role="user", content=user),
         ],
         model=model,
