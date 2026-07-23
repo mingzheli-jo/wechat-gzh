@@ -51,6 +51,8 @@ class Settings(BaseSettings):
     creation_candidate_limit: int = Field(default=30, ge=5, le=100)
     # 候选池中额外混入的最近文章篇数（保证覆盖"近期"内容）
     creation_recent_count: int = Field(default=10, ge=0, le=50)
+    # 无人值守自动推送创作时要求的事实核查最低分数
+    creation_auto_publish_min_score: int = Field(default=80, ge=0, le=100)
 
     # AI 图像生成（豆包 Seedream）
     doubao_api_key: str = ""

@@ -24,10 +24,16 @@ class Draft(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    library_item_id: Mapped[uuid.UUID] = mapped_column(
+    library_item_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("library_items.id"),
-        nullable=False,
+        nullable=True,
+    )
+    source_creation_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("theme_creations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
     account_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=False, index=True

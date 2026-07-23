@@ -19,6 +19,7 @@ from app.accounts.models import Account  # noqa: F401
 from app.ai_providers.models import AIProvider, AIUsage, RoleBinding  # noqa: F401
 from app.auth.password import hash_password
 from app.config import get_settings
+from app.creator.models import ThemeCreation  # noqa: F401
 from app.db.base import Base
 from app.drafts.models import Draft, ReviewReport  # noqa: F401
 from app.image_posts.models import ImageAsset, ImagePost  # noqa: F401

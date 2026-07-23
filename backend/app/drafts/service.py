@@ -34,6 +34,28 @@ async def create_draft(
     return obj
 
 
+async def create_draft_from_creation(
+    db: AsyncSession,
+    *,
+    creation_id: uuid.UUID,
+    account_id: uuid.UUID,
+    title: str | None,
+    content_html: str | None,
+) -> Draft:
+    obj = Draft(
+        library_item_id=None,
+        source_creation_id=creation_id,
+        account_id=account_id,
+        title=title,
+        content_html=content_html,
+        status=DraftStatus.reviewed,
+    )
+    db.add(obj)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+
 async def list_drafts(
     db: AsyncSession,
     *,

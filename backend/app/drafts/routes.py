@@ -42,8 +42,10 @@ def _draft_to_out_dict(draft: Draft, *, source_url: str | None) -> dict[str, Any
 
 
 async def _load_library_item(
-    db: AsyncSession, library_item_id: uuid.UUID
+    db: AsyncSession, library_item_id: uuid.UUID | None
 ) -> LibraryItem | None:
+    if library_item_id is None:
+        return None
     return (
         await db.execute(
             select(LibraryItem).where(LibraryItem.id == library_item_id)
@@ -92,7 +94,10 @@ async def list_all(
         page=page,
         page_size=page_size,
     )
-    library_ids = {d.library_item_id for d in items}
+    # Creation-sourced drafts have no library_item_id; only look up real ids.
+    library_ids = {
+        d.library_item_id for d in items if d.library_item_id is not None
+    }
     url_map: dict[uuid.UUID, str | None] = {}
     if library_ids:
         rows = (
@@ -106,7 +111,14 @@ async def list_all(
     return DraftListPage(
         items=[
             DraftOut.model_validate(
-                _draft_to_out_dict(d, source_url=url_map.get(d.library_item_id))
+                _draft_to_out_dict(
+                    d,
+                    source_url=(
+                        url_map.get(d.library_item_id)
+                        if d.library_item_id is not None
+                        else None
+                    ),
+                )
             )
             for d in items
         ],
@@ -207,6 +219,11 @@ async def rewrite_again(
             409,
             f"已达 {settings.draft_max_regenerations} 次改写上限",
         )
+    # Creation-sourced drafts have no LibraryItem to feed the rewrite pipeline;
+    # run_pipeline would fail loading the (absent) library item and strand the
+    # draft. Re-authoring belongs to the creation flow, not the rewrite flow.
+    if obj.library_item_id is None:
+        raise HTTPException(409, "由创作生成的草稿不支持重新改写")
     obj = await service.reset_for_rewrite(db, obj)
     from app.tasks.rewrite import run_pipeline
 

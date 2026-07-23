@@ -17,7 +17,7 @@ class RewriteTriggerRequest(BaseModel):
 class DraftOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
-    library_item_id: uuid.UUID
+    library_item_id: uuid.UUID | None
     account_id: uuid.UUID
     title: str | None
     status: DraftStatus

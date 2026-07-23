@@ -71,6 +71,10 @@ class CreationEdit(BaseModel):
     generated_content_html: str | None = None
 
 
+class CreationPublishRequest(BaseModel):
+    account_id: uuid.UUID | None = None
+
+
 class CreationListPage(BaseModel):
     items: list[CreationOut]
     total: int

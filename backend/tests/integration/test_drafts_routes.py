@@ -189,6 +189,58 @@ async def test_draft_list_exposes_source_url(auth_client, db_session):
     assert any(d["source_url"] and d["source_url"].startswith("https://") for d in items)
 
 
+async def test_rewrite_again_rejects_creation_sourced_draft(
+    auth_client, db_session
+):
+    from app.creator.models import (
+        CreationInputMode,
+        CreationStatus,
+        ThemeCreation,
+    )
+
+    account = Account(
+        name="A",
+        wechat_appid="wx",
+        wechat_secret="s",
+        category="职场",
+        title_prompt="t",
+        content_prompt="c",
+    )
+    creation = ThemeCreation(
+        input_mode=CreationInputMode.manual,
+        extracted_theme="主题",
+        generated_title="生成标题",
+        generated_content_html="<p>生成正文</p>",
+        status=CreationStatus.done,
+    )
+    db_session.add_all([account, creation])
+    await db_session.commit()
+    await db_session.refresh(account)
+    await db_session.refresh(creation)
+
+    # Creation-sourced draft: no library_item_id.
+    draft = Draft(
+        library_item_id=None,
+        source_creation_id=creation.id,
+        account_id=account.id,
+        status=DraftStatus.reviewed,
+        title="生成标题",
+        content_html="<p>生成正文</p>",
+    )
+    db_session.add(draft)
+    await db_session.commit()
+    await db_session.refresh(draft)
+
+    r = await auth_client.post(f"/api/drafts/{draft.id}/rewrite")
+    assert r.status_code == 409
+    assert "创作" in r.json()["detail"]
+
+    await db_session.refresh(draft)
+    # Untouched: no reset, still reviewed.
+    assert draft.status == DraftStatus.reviewed
+    assert draft.regenerate_count == 0
+
+
 async def _seed_with_report(
     db_session, *, status: DraftStatus
 ) -> Draft:

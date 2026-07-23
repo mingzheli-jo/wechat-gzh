@@ -7,6 +7,41 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.creator.models import CreationInputMode, CreationStatus, ThemeCreation
 
 
+# TODO(auto-publish): wired by the future unattended-publish client; staged now.
+def check_auto_publish_gate(
+    creation: ThemeCreation, *, min_score: int
+) -> tuple[bool, str | None]:
+    """Pure gate deciding whether a creation may be auto-published unattended.
+
+    Returns (ok, reason_if_not). No DB/IO — callers pass a loaded row. This is
+    for the future unattended pipeline; the manual publish endpoint enforces
+    only the hard preconditions (mirroring manual draft-publish, which has no
+    score threshold).
+    """
+    if creation.status != CreationStatus.done:
+        return False, "创作尚未完成"
+    if creation.account_id is None:
+        return False, "未绑定公众号账号"
+    if not (creation.generated_title and creation.generated_title.strip()):
+        return False, "缺少标题"
+    if not (
+        creation.generated_content_html
+        and creation.generated_content_html.strip()
+    ):
+        return False, "缺少正文"
+    fact_check = creation.fact_check
+    if not fact_check:
+        return False, "缺少事实核查结果"
+    if fact_check.get("mode") == "no_sources":
+        return False, "无检索素材，未做事实核查"
+    score = fact_check.get("score")
+    if score is None:
+        return False, "事实核查未给出分数"
+    if score < min_score:
+        return False, f"事实核查分数 {score} 低于阈值 {min_score}"
+    return True, None
+
+
 async def create_creation(
     db: AsyncSession,
     *,
