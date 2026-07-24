@@ -9,12 +9,32 @@ from app.library.models import LibraryItem, LibraryStatus
 
 async def create_pending(
     db: AsyncSession, url: str, tags: list[str]
-) -> LibraryItem:
+) -> tuple[LibraryItem, bool]:
+    """按 URL 幂等入库，返回 (条目, 是否新建)。
+
+    source_url 有唯一约束，重复提交同一链接原本会直接 IntegrityError 500。
+    自动出稿每天按热榜话题搜素材，撞到已入库的链接是常态，所以这里返回既有
+    条目；抓取失败过的条目重置为 pending，让调用方重新派发抓取。
+    """
+    existing = (
+        await db.execute(
+            select(LibraryItem).where(LibraryItem.source_url == url)
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        if existing.status == LibraryStatus.failed:
+            existing.status = LibraryStatus.pending
+            existing.error_msg = None
+            await db.commit()
+            await db.refresh(existing)
+            return existing, True
+        return existing, False
+
     obj = LibraryItem(source_url=url, tags=tags, status=LibraryStatus.pending)
     db.add(obj)
     await db.commit()
     await db.refresh(obj)
-    return obj
+    return obj, True
 
 
 async def get(db: AsyncSession, item_id: uuid.UUID) -> LibraryItem | None:

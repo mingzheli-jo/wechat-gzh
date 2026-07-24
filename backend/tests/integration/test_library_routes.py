@@ -72,3 +72,41 @@ async def test_update_tags_and_delete(auth_client):
     assert upd.json()["tags"] == ["养生"]
     delete = await auth_client.delete(f"/api/library/{item_id}")
     assert delete.status_code == 204
+
+
+async def test_ingest_same_url_twice_is_idempotent(auth_client):
+    """自动出稿每天按热榜搜素材，撞到已入库链接是常态，不能 500。"""
+    url = "https://news.qq.com/rain/a/20260724A01"
+    first = await auth_client.post("/api/library", json={"urls": [url]})
+    assert first.status_code == 201
+    second = await auth_client.post("/api/library", json={"urls": [url]})
+    assert second.status_code == 201
+    assert second.json()[0]["id"] == first.json()[0]["id"]
+
+    listing = await auth_client.get("/api/library")
+    assert [i["source_url"] for i in listing.json()].count(url) == 1
+
+
+async def test_reingest_failed_item_redispatches_crawl(auth_client, db_session):
+    """抓失败过的条目重新提交要能再抓一次，否则失败的素材永远救不回来。"""
+    from sqlalchemy import select
+
+    from app.library.models import LibraryItem, LibraryStatus
+
+    url = "https://news.qq.com/rain/a/20260724A02"
+    created = await auth_client.post("/api/library", json={"urls": [url]})
+    item_id = created.json()[0]["id"]
+
+    item = (
+        await db_session.execute(
+            select(LibraryItem).where(LibraryItem.source_url == url)
+        )
+    ).scalar_one()
+    item.status = LibraryStatus.failed
+    item.error_msg = "parse error: 正文过短"
+    await db_session.commit()
+
+    again = await auth_client.post("/api/library", json={"urls": [url]})
+    assert again.status_code == 201
+    assert again.json()[0]["id"] == item_id
+    assert again.json()[0]["status"] == "pending"

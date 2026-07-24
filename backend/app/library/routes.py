@@ -27,8 +27,10 @@ async def ingest(
 
     items: list[LibraryItemOut] = []
     for url in payload.urls:
-        obj = await service.create_pending(db, url, payload.tags)
-        crawl_library_item.delay(str(obj.id))
+        obj, should_crawl = await service.create_pending(db, url, payload.tags)
+        # 已抓好的老条目不重抓：白费一次抓取，还会把正文覆盖掉。
+        if should_crawl:
+            crawl_library_item.delay(str(obj.id))
         items.append(LibraryItemOut.model_validate(obj))
     return items
 
