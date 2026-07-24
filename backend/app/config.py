@@ -37,7 +37,11 @@ class Settings(BaseSettings):
         "chinanews.com,chinanews.com.cn,people.com.cn,xinhuanet.com,"
         "cctv.com,jiemian.com,yicai.com,huxiu.com,36kr.com,"
         "baijiahao.baidu.com,bjnews.com.cn,nbd.com.cn,cls.cn,stcn.com,"
-        "chinadaily.com.cn,workercn.cn,ce.cn,cnr.cn,gmw.cn,china.com.cn"
+        "chinadaily.com.cn,workercn.cn,ce.cn,cnr.cn,gmw.cn,china.com.cn,"
+        # 头条搜索里常见的第三方来源
+        "ithome.com,techweb.com.cn,hexun.com,cnbeta.com.tw,donews.com,"
+        "pingwest.com,ifanr.com,eeo.com.cn,21jingji.com,huanqiu.com,"
+        "guancha.cn"
     )
     # LLM 请求超时（秒），防止外部 AI 服务挂起拖死任务
     llm_timeout_seconds: int = 60
