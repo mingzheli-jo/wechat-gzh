@@ -24,8 +24,18 @@ class Settings(BaseSettings):
 
     # CORS：逗号分隔的允许来源，或 "*" 表示任意来源（为 "*" 时自动关闭凭证回显）
     cors_origins: str = "*"
-    # 抓取器 SSRF 白名单：逗号分隔的允许 host 后缀（只放微信文章域名）
-    allowed_crawl_domains: str = "mp.weixin.qq.com,weixin.qq.com"
+    # 抓取器 SSRF 白名单：逗号分隔的允许 host 后缀。
+    # 微信域是原始素材源；后面一串新闻域是自动出稿的当下素材源（热榜话题
+    # → 搜到当天报道 → 入库供创作检索）。只列公开新闻站，白名单机制本身
+    # 是 SSRF 防护，别改成放行全部。
+    allowed_crawl_domains: str = (
+        "mp.weixin.qq.com,weixin.qq.com,"
+        "news.qq.com,new.qq.com,view.inews.qq.com,inews.qq.com,"
+        "sohu.com,gov.cn,thepaper.cn,sina.com.cn,163.com,ifeng.com,"
+        "chinanews.com,chinanews.com.cn,people.com.cn,xinhuanet.com,"
+        "cctv.com,jiemian.com,yicai.com,huxiu.com,36kr.com,"
+        "baijiahao.baidu.com"
+    )
     # LLM 请求超时（秒），防止外部 AI 服务挂起拖死任务
     llm_timeout_seconds: int = 60
 

@@ -3,17 +3,42 @@ import logging
 import uuid
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlparse
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.crawler.fetcher import FetchError, fetch_html
-from app.crawler.parser import parse_wechat_article
+from app.crawler.parser import (
+    ParsedArticle,
+    ParseError,
+    parse_generic_article,
+    parse_wechat_article,
+)
 from app.db.session import make_engine
 from app.library.models import LibraryItem, LibraryStatus
 from app.tasks.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
+
+
+_WECHAT_HOSTS = ("mp.weixin.qq.com", "weixin.qq.com")
+
+
+def _parse(source_url: str, html: str) -> ParsedArticle:
+    """按来源域名选解析器：微信走专用 xpath，其余新闻站走通用抽取。"""
+    host = (urlparse(source_url).hostname or "").lower()
+    is_wechat = any(
+        host == d or host.endswith("." + d) for d in _WECHAT_HOSTS
+    )
+    if not is_wechat:
+        return parse_generic_article(html)
+    parsed = parse_wechat_article(html)
+    # 微信解析器抓不到 #js_content 时返回空正文。以前这种情况会被标成
+    # done，素材库里留下一条空壳——检索时命中它比命中不到更糟。
+    if not parsed.content_text.strip():
+        raise ParseError("微信正文为空（页面结构不符或已被拦截）")
+    return parsed
 
 
 async def _crawl_with_session(session: AsyncSession, item_id: uuid.UUID) -> None:
@@ -30,7 +55,7 @@ async def _crawl_with_session(session: AsyncSession, item_id: uuid.UUID) -> None
     await session.commit()
     try:
         html = await fetch_html(item.source_url)
-        parsed = parse_wechat_article(html)
+        parsed = _parse(item.source_url, html)
         item.original_title = parsed.title
         item.original_author = parsed.author
         item.original_content_html = parsed.content_html
@@ -42,6 +67,10 @@ async def _crawl_with_session(session: AsyncSession, item_id: uuid.UUID) -> None
     except FetchError as exc:
         item.status = LibraryStatus.failed
         item.error_msg = f"fetch error: {exc}"
+    except ParseError as exc:
+        # 页面结构问题，重试也是一样的结果，不进 autoretry。
+        item.status = LibraryStatus.failed
+        item.error_msg = f"parse error: {exc}"
     except Exception as exc:
         item.status = LibraryStatus.failed
         item.error_msg = f"unexpected: {exc!r}"
