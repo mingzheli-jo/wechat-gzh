@@ -64,6 +64,11 @@ async def fetch_html(
                         "WeChat anti-bot captcha triggered "
                         "(redirected to wappoc_appmsgcaptcha)"
                     )
+                # 跳转目标同样要过白名单：白名单里的门户站普遍带
+                # /link?url= 之类的外跳端点，只校验入口 URL 的话，一个开放
+                # 重定向就能把抓取器指到内网地址上去。
+                for hop in (*response.history, response):
+                    _check_url_allowed(str(hop.url))
                 return response.text
             raise FetchError(f"HTTP {response.status_code}")
         except httpx.TimeoutException as exc:

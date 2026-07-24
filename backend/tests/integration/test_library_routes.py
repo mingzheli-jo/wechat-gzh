@@ -110,3 +110,28 @@ async def test_reingest_failed_item_redispatches_crawl(auth_client, db_session):
     assert again.status_code == 201
     assert again.json()[0]["id"] == item_id
     assert again.json()[0]["status"] == "pending"
+
+
+async def test_reingest_pending_item_redispatches_crawl(auth_client, db_session):
+    """派发本身失败过的条目会一直停在 pending，重新提交必须再派一次，否则永远卡住。"""
+    calls = []
+    from app.tasks import crawl
+
+    crawl.crawl_library_item.delay = lambda *a, **k: calls.append(a)  # type: ignore[method-assign]
+
+    url = "https://news.qq.com/rain/a/20260724A05"
+    first = await auth_client.post("/api/library", json={"urls": [url]})
+    assert first.json()[0]["status"] == "pending"
+    again = await auth_client.post("/api/library", json={"urls": [url]})
+    assert again.json()[0]["id"] == first.json()[0]["id"]
+    assert len(calls) == 2
+
+
+async def test_reingest_merges_tags(auth_client):
+    """同一篇报道被不同热榜话题命中时，新 tag 不能被无声吞掉。"""
+    url = "https://news.qq.com/rain/a/20260724A06"
+    await auth_client.post("/api/library", json={"urls": [url], "tags": ["养老金"]})
+    await auth_client.post("/api/library", json={"urls": [url], "tags": ["退休"]})
+    r = await auth_client.get("/api/library?tag=退休")
+    assert [i["source_url"] for i in r.json()] == [url]
+    assert set(r.json()[0]["tags"]) == {"养老金", "退休"}

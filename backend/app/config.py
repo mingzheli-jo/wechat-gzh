@@ -28,13 +28,16 @@ class Settings(BaseSettings):
     # 微信域是原始素材源；后面一串新闻域是自动出稿的当下素材源（热榜话题
     # → 搜到当天报道 → 入库供创作检索）。只列公开新闻站，白名单机制本身
     # 是 SSRF 防护，别改成放行全部。
+    # 注意：只列单一机构持有的域名。`gov.cn` 这种准公共后缀不能整段放行——
+    # 任意 xxx.gov.cn 都会命中，其中一个子域被拿下就等于白名单被绕过。
     allowed_crawl_domains: str = (
         "mp.weixin.qq.com,weixin.qq.com,"
         "news.qq.com,new.qq.com,view.inews.qq.com,inews.qq.com,"
-        "sohu.com,gov.cn,thepaper.cn,sina.com.cn,163.com,ifeng.com,"
+        "sohu.com,www.gov.cn,thepaper.cn,sina.com.cn,163.com,ifeng.com,"
         "chinanews.com,chinanews.com.cn,people.com.cn,xinhuanet.com,"
         "cctv.com,jiemian.com,yicai.com,huxiu.com,36kr.com,"
-        "baijiahao.baidu.com"
+        "baijiahao.baidu.com,bjnews.com.cn,nbd.com.cn,cls.cn,stcn.com,"
+        "chinadaily.com.cn,workercn.cn,ce.cn,cnr.cn,gmw.cn,china.com.cn"
     )
     # LLM 请求超时（秒），防止外部 AI 服务挂起拖死任务
     llm_timeout_seconds: int = 60

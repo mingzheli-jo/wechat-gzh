@@ -75,3 +75,14 @@ def test_generic_parse_rejects_boilerplate_only_page():
 def test_generic_parse_rejects_unparseable_input():
     with pytest.raises(ParseError):
         parse_generic_article("")
+
+
+def test_generic_parse_keeps_protocol_relative_images():
+    """//host/x.jpg 是新闻站常见写法，补协议后能下载，不该被当相对路径丢掉。"""
+    body = "养老金上调的通知已经下发，各地正在按新的计发办法执行。" * 8
+    html = (
+        f"<html><body><div class='article'><p>{body}</p><p>{body}</p>"
+        "<img src='//img.inews.qq.com/pic.jpg'/></div></body></html>"
+    )
+    result = parse_generic_article(html)
+    assert [i["url"] for i in result.images] == ["https://img.inews.qq.com/pic.jpg"]

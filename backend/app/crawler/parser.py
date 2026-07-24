@@ -87,8 +87,11 @@ def parse_generic_article(html_text: str) -> ParsedArticle:
     images: list[dict[str, Any]] = []
     for idx, img in enumerate(container.xpath(".//img")):
         url = img.get("data-src") or img.get("src") or ""
-        # 只要绝对 http(s) 地址：相对路径和 data: 内联图下载不了。
-        if not url.startswith(("http://", "https://")):
+        # 协议相对地址（//host/x.jpg）是新闻站常见写法，补上协议即可下载。
+        if url.startswith("//"):
+            url = "https:" + url
+        # 其余只要绝对 http(s) 地址：站内相对路径和 data: 内联图下载不了。
+        elif not url.startswith(("http://", "https://")):
             continue
         images.append({"url": url, "alt": img.get("alt", ""), "position": idx})
 

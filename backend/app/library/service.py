@@ -1,6 +1,7 @@
 import uuid
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.drafts.models import Draft, DraftStatus
@@ -10,31 +11,57 @@ from app.library.models import LibraryItem, LibraryStatus
 async def create_pending(
     db: AsyncSession, url: str, tags: list[str]
 ) -> tuple[LibraryItem, bool]:
-    """按 URL 幂等入库，返回 (条目, 是否新建)。
+    """按 URL 幂等入库，返回 (条目, 调用方是否应派发抓取)。
 
     source_url 有唯一约束，重复提交同一链接原本会直接 IntegrityError 500。
-    自动出稿每天按热榜话题搜素材，撞到已入库的链接是常态，所以这里返回既有
-    条目；抓取失败过的条目重置为 pending，让调用方重新派发抓取。
+    自动出稿每天按热榜话题搜素材，撞到已入库的链接是常态，所以这里复用既有
+    条目。failed / pending 的条目要求重新派发抓取：failed 是抓砸了，pending
+    则可能是上次派发本身就没成功（比如 broker 抖动），不重派就永远卡住。
     """
-    existing = (
+    existing = await _find_by_url(db, url)
+    if existing is not None:
+        return existing, await _revive(db, existing, tags)
+
+    obj = LibraryItem(source_url=url, tags=tags, status=LibraryStatus.pending)
+    db.add(obj)
+    try:
+        await db.commit()
+    except IntegrityError:
+        # 并发提交同一新链接：两边都查不到、都插入，后提交的撞唯一约束。
+        await db.rollback()
+        existing = await _find_by_url(db, url)
+        if existing is None:  # 约束冲突却查不到，只能把原始错误抛出去
+            raise
+        return existing, await _revive(db, existing, tags)
+    await db.refresh(obj)
+    return obj, True
+
+
+async def _find_by_url(db: AsyncSession, url: str) -> LibraryItem | None:
+    return (
         await db.execute(
             select(LibraryItem).where(LibraryItem.source_url == url)
         )
     ).scalar_one_or_none()
-    if existing is not None:
-        if existing.status == LibraryStatus.failed:
-            existing.status = LibraryStatus.pending
-            existing.error_msg = None
-            await db.commit()
-            await db.refresh(existing)
-            return existing, True
-        return existing, False
 
-    obj = LibraryItem(source_url=url, tags=tags, status=LibraryStatus.pending)
-    db.add(obj)
-    await db.commit()
-    await db.refresh(obj)
-    return obj, True
+
+async def _revive(
+    db: AsyncSession, item: LibraryItem, tags: list[str]
+) -> bool:
+    """合并新 tags，必要时把条目重置为待抓。返回是否应派发抓取。"""
+    merged = list(dict.fromkeys([*(item.tags or []), *tags]))
+    changed = merged != (item.tags or [])
+    if changed:
+        item.tags = merged
+    should_crawl = item.status in (LibraryStatus.failed, LibraryStatus.pending)
+    if should_crawl:
+        item.status = LibraryStatus.pending
+        item.error_msg = None
+        changed = True
+    if changed:
+        await db.commit()
+        await db.refresh(item)
+    return should_crawl
 
 
 async def get(db: AsyncSession, item_id: uuid.UUID) -> LibraryItem | None:
