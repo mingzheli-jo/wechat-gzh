@@ -108,3 +108,88 @@ def test_aggregate_overall_score():
     overall = aggregate(reports)
     assert 0 <= overall <= 100
     assert overall == int(80 * 0.35 + 60 * 0.25 + 90 * 0.25 + 70 * 0.15)
+
+
+# --- truncated-response handling (production bug 2026-07-27) ---------------
+# Moonshot's default max_tokens cut the fact-check JSON off mid-string. The
+# brace-slice fallback then failed too (no closing brace survived), score
+# defaulted to 0, and the auto-publish gate silently dropped articles the
+# reviewer had actually scored 95.
+
+
+def test_parse_json_safe_recovers_score_from_truncated_json():
+    truncated = '{"score": 95, "unsupported_claims": ["某条陈述"], "issues": ["文章中提到的'
+    out = _parse_json_safe(truncated)
+    assert out["score"] == 95
+    assert out["parse_error"] is True
+    assert out["score_recovered"] is True
+
+
+def test_parse_json_safe_truncated_without_score_still_fails_closed():
+    out = _parse_json_safe('{"unsupported_claims": ["某条陈述"], "issues": ["文章中')
+    assert out["score"] == 0
+    assert out["parse_error"] is True
+    assert out["score_recovered"] is False
+
+
+def test_parse_json_safe_clamps_out_of_range_recovered_score():
+    out = _parse_json_safe('{"score": 999, "issues": ["截断')
+    assert out["score"] == 100
+
+
+def test_parse_json_safe_intact_json_has_no_parse_error_flag():
+    out = _parse_json_safe('{"score": 80, "issues": []}')
+    assert "parse_error" not in out
+
+
+@pytest.mark.asyncio
+async def test_grounding_recovers_truncated_score_and_flags_it():
+    from app.reviewer.grounding import review_grounding
+
+    provider = StubProvider('{"score": 95, "unsupported_claims": [], "issues": ["文章中提到的')
+    out = await review_grounding(
+        provider=provider, model="m", article="正文", sources_text="素材"
+    )
+    assert out["score"] == 95
+    assert out["parse_error"] is True
+    assert out["score_recovered"] is True
+
+
+@pytest.mark.asyncio
+async def test_reviewers_cap_output_tokens():
+    """Every reviewer must bound its own output, or long Chinese `issues`
+    arrays truncate the JSON and the score is lost."""
+    from app.config import get_settings
+    from app.reviewer.grounding import review_grounding
+
+    captured: dict[str, Any] = {}
+
+    class CapturingProvider(StubProvider):
+        async def chat(self, messages, *, model, temperature=0.7,
+                       max_tokens=None, json_mode=False, **kwargs):
+            captured["max_tokens"] = max_tokens
+            return await super().chat(
+                messages, model=model, temperature=temperature,
+                max_tokens=max_tokens, json_mode=json_mode, **kwargs
+            )
+
+    expected = get_settings().reviewer_max_tokens
+    assert expected >= 512
+
+    calls = [
+        lambda p: review_compliance(provider=p, model="m", title="t", content="c"),
+        lambda p: review_originality(
+            provider=p, model="m", original_text="o", rewritten_text="r"
+        ),
+        lambda p: review_quality(provider=p, model="m", title="t", content="c"),
+        lambda p: review_clickbait(
+            provider=p, model="m", title="t", content_excerpt="c"
+        ),
+        lambda p: review_grounding(
+            provider=p, model="m", article="a", sources_text="s"
+        ),
+    ]
+    for call in calls:
+        captured.clear()
+        await call(CapturingProvider('{"score": 90, "issues": []}'))
+        assert captured["max_tokens"] == expected

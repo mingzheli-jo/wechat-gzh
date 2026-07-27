@@ -4,6 +4,7 @@ retrieved source material, or did the model invent facts/data?"""
 from typing import Any
 
 from app.ai_providers.base import BaseProvider, Message
+from app.config import get_settings
 from app.reviewer.compliance import _parse_json_safe
 
 PROMPT = """你是一名事实核查员。下面给出【参考素材】和一篇【待核查文章】。
@@ -35,11 +36,18 @@ async def review_grounding(
         model=model,
         json_mode=True,
         temperature=0.1,
+        max_tokens=get_settings().reviewer_max_tokens,
     )
     parsed = _parse_json_safe(result.content)
-    return {
+    out: dict[str, Any] = {
         "score": int(parsed.get("score", 0)),
         "unsupported_claims": list(parsed.get("unsupported_claims") or []),
         "issues": list(parsed.get("issues") or []),
         "model": model,
     }
+    # Surface parse trouble so a 0 caused by a mangled response is
+    # distinguishable from a 0 the reviewer genuinely awarded.
+    if parsed.get("parse_error"):
+        out["parse_error"] = True
+        out["score_recovered"] = bool(parsed.get("score_recovered"))
+    return out

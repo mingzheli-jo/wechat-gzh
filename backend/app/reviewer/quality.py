@@ -2,6 +2,7 @@
 from typing import Any
 
 from app.ai_providers.base import BaseProvider, Message
+from app.config import get_settings
 from app.reviewer.compliance import _parse_json_safe
 
 PROMPT = """你是一名"AI 味"检测员。你唯一的任务是判断这篇文章读起来像不像机器写的，并指出具体证据。
@@ -80,6 +81,7 @@ async def review_quality(
         model=model,
         json_mode=True,
         temperature=0.1,
+        max_tokens=get_settings().reviewer_max_tokens,
     )
     parsed = _parse_json_safe(result.content)
     return {

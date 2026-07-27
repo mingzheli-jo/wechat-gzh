@@ -1,8 +1,10 @@
 # ruff: noqa: E501
 import json
+import re
 from typing import Any
 
 from app.ai_providers.base import BaseProvider, Message
+from app.config import get_settings
 from app.reviewer.sensitive_words import SensitiveWordChecker
 
 PROMPT = """你是一名公众号合规审核员。请评估以下文章是否存在违规风险（政治敏感、广告法违禁词、医疗保健夸大、虚假宣传）。
@@ -37,6 +39,30 @@ def _strip_surrogates(value: Any) -> Any:
     return value
 
 
+_SCORE_RE = re.compile(r'"score"\s*:\s*(\d{1,3})')
+
+
+def _unparseable(text: str, reason: str) -> dict[str, Any]:
+    """Build the fallback result for a response we could not parse.
+
+    Truncated output (model hit its token ceiling mid-string) is the common
+    case, and the prompts all emit "score" first — so the verdict itself
+    usually survives even when the JSON does not. Recovering it matters:
+    defaulting to 0 silently fails a gate that the model actually passed.
+    Only when no score can be recovered do we fall back to 0.
+    """
+    match = _SCORE_RE.search(text)
+    score = min(int(match.group(1)), 100) if match else 0
+    return {
+        "score": score,
+        "issues": [f"{reason}（已从截断输出中恢复 score={score}）"
+                   if match
+                   else f"{reason}: {text[:200]}"],
+        "parse_error": True,
+        "score_recovered": match is not None,
+    }
+
+
 def _parse_json_safe(text: str) -> dict[str, Any]:
     parsed: Any
     try:
@@ -48,19 +74,13 @@ def _parse_json_safe(text: str) -> dict[str, Any]:
             try:
                 parsed = json.loads(text[start : end + 1])
             except json.JSONDecodeError:
-                return {
-                    "score": 0,
-                    "issues": [f"AI 返回非法 JSON: {text[:200]}"],
-                }
+                return _unparseable(text, "AI 返回非法 JSON")
         else:
-            return {
-                "score": 0,
-                "issues": [f"AI 返回非法 JSON: {text[:200]}"],
-            }
+            return _unparseable(text, "AI 返回非法 JSON")
     sanitized = _strip_surrogates(parsed)
     if isinstance(sanitized, dict):
         return sanitized
-    return {"score": 0, "issues": [f"AI 返回非 dict JSON: {text[:200]}"]}
+    return _unparseable(text, "AI 返回非 dict JSON")
 
 
 async def review_compliance(
@@ -84,6 +104,7 @@ async def review_compliance(
         model=model,
         json_mode=True,
         temperature=0.1,
+        max_tokens=get_settings().reviewer_max_tokens,
     )
     parsed = _parse_json_safe(result.content)
     score = int(parsed.get("score", 0))

@@ -2,6 +2,7 @@
 from typing import Any
 
 from app.ai_providers.base import BaseProvider, Message
+from app.config import get_settings
 from app.reviewer.compliance import _parse_json_safe
 from app.reviewer.text_similarity import compute_similarity
 
@@ -52,6 +53,7 @@ async def review_originality(
         model=model,
         json_mode=True,
         temperature=0.1,
+        max_tokens=get_settings().reviewer_max_tokens,
     )
     parsed = _parse_json_safe(result.content)
 

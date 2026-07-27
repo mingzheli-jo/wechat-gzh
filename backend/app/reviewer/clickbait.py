@@ -1,6 +1,7 @@
 from typing import Any
 
 from app.ai_providers.base import BaseProvider, Message
+from app.config import get_settings
 from app.reviewer.compliance import _parse_json_safe
 
 PROMPT = """你是一名标题审核员，评估【标题】是否标题党：是否过度夸张、是否与【正文】不符。
@@ -23,6 +24,7 @@ async def review_clickbait(
         model=model,
         json_mode=True,
         temperature=0.1,
+        max_tokens=get_settings().reviewer_max_tokens,
     )
     parsed = _parse_json_safe(result.content)
     return {

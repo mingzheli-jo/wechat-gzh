@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     review_auto_fix_enabled: bool = True
     review_auto_fix_compliance_min: int = Field(default=95, ge=0, le=100)
     review_auto_fix_max_passes: int = Field(default=1, ge=0, le=3)
+    # 审查类调用的输出上限。审查结果是 JSON，中文 issues 数组很容易撑爆
+    # provider 的默认上限（Moonshot 默认仅 1024），一旦被截断 JSON 就解析
+    # 不出来、分数退化成 0，好文章会被闸门误杀。
+    reviewer_max_tokens: int = Field(default=3000, ge=512, le=16000)
     stats_backfill_days: int = Field(default=30, ge=7, le=90)
     stats_daily_cron_hour: int = Field(default=3, ge=0, le=23)
 
