@@ -21,7 +21,7 @@ from app.ai_providers.usage import record_usage
 from app.config import get_settings
 from app.crawler.fetcher import FetchError, fetch_html
 from app.crawler.parser import parse_wechat_article
-from app.creator import generator, retriever, theme_extractor
+from app.creator import citations, generator, retriever, theme_extractor
 from app.creator.models import CreationInputMode, CreationStatus, ThemeCreation
 from app.db.session import make_engine
 from app.reviewer.grounding import review_grounding
@@ -205,7 +205,11 @@ async def _create_with_session(
         if not content_md:
             raise ValueError("文章生成返回空正文，已中止")
         creation.generated_content_md = content_md
-        creation.generated_content_html = render_markdown(content_md)
+        # 正文里的 [1][2] 是喂给事实核查的内部来源编号，读者看不到素材清单，
+        # 所以只在对外的 HTML 里剥掉；md 保留原样供 grounding 核查与追溯。
+        creation.generated_content_html = render_markdown(
+            citations.strip_citation_markers(content_md)
+        )
         await session.commit()
         await record_usage(
             session,
