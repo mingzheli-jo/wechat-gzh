@@ -41,7 +41,18 @@
 - 服务器隔离目录已验证 28 个测试全通过（无跳过），覆盖 Linux 锁和 Bash 失败退出码。只读查询准确匹配昨日创作 ab4c1fef-fa11-47ea-b698-72e910be07d7 对应成功草稿 4ad56f24-55ae-44b4-b786-dc8d04644813，确认不会算入今天名额。
 - 独立审查后修复：配额失败不跨日锁死、已有成功仍报告其他未决推送；另补第 29 个回归，保证“昨日发送后崩溃、后台明确拒绝”的旧 pending 在今日恢复时直接继续选题。
 - 最终 29 个测试在服务器 Linux 隔离目录全部通过，无跳过；本地 ruff 与 git diff --check 通过。独立审查的高优先级问题已回归验证。
-- 部署范围为 auto_pipeline.py、recovery.py、run-auto.sh 三个文件；原 cron 与其他脚本保持。最终服务器替换验证待完成。
+- 2026-09-08 13:51 已将源码提交 8704364 的三个脚本安装到服务器；替换前原文件 SHA256 匹配、无运行中的旧自动脚本、部署期间持有两把运行锁；替换后校验值逐一匹配，cron 内容未变。没有触发真实出稿或推送。
+- 安装后导入与只读集成通过：真实历史成功稿触发 complete 跳过，POST 被测试保护禁止且调用次数为 0；今日两个号成功数均为 0，DeepSeek 审核绑定保持。未以真实生成/推送方式重跑当天任务，端到端自动出稿结果仍需下一次真实调度确认。
+
+## 部署记录
+
+旧文件备份：`/home/ubuntu/gzh-digest/backup-recovery-20260908-135140`。隔离测试目录：`/home/ubuntu/gzh-digest/recovery-check-vKGMmg3T`。恢复旧行为时只需经操作者授权恢复备份中的 auto_pipeline.py 和 run-auto.sh；recovery.py 保留也不会被旧脚本引用。
+
+| 文件 | 已安装 SHA256 |
+|---|---|
+| auto_pipeline.py | 0098fb02967b87509ad79190da067de93947bd56bec9dd405089c9fddf2d5197 |
+| recovery.py | c0d56d9cf257d10cfbc1f823bd4623f399fc99865b80f1103dcd0fd637dcb4fb |
+| run-auto.sh | ee096aa66375f47fbba0264fda8f8b23dd45851b001456c0e466c9a447e8a730 |
 
 ## 结果未知时的恢复
 
