@@ -37,6 +37,7 @@ from datetime import datetime, timezone, timedelta
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import digest  # noqa: E402  复用话题源 + 分类关键词 + 账号
 import find_news  # noqa: E402  话题 → 当下新闻报道链接（Bing）
+from recovery import Progress, business_day, publish_failure_kind, pushed_today, read_account_drafts, single_run
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATE_DIR = os.path.join(HERE, "state")
@@ -103,7 +104,7 @@ class Api:
         with urllib.request.urlopen(req, timeout=30) as r:
             self.token = json.load(r)["access_token"]
 
-    def _req(self, method, path, body=None):
+    def _req(self, method, path, body=None, reauthenticate=True):
         if not self.token:
             self.login()
         url = f"{self.base}{path}"
@@ -117,9 +118,9 @@ class Api:
             with urllib.request.urlopen(req, timeout=180) as r:
                 raw = r.read().decode("utf-8", "replace")
         except urllib.error.HTTPError as e:
-            if e.code == 401:
+            if e.code == 401 and reauthenticate:
                 self.login()
-                return self._req(method, path, body)
+                return self._req(method, path, body, reauthenticate=False)
             raise
         return json.loads(raw) if raw.strip() else {}
 
@@ -149,7 +150,7 @@ def build_queue(acc, topics, done_topics):
     if not kws:
         return []
     return [
-        t for t in topics
+        t for t in dict.fromkeys(topics)
         if t not in done_topics
         and not any(n in t for n in digest.NOISE_MARKERS)
         and not topic_is_noise(t)
@@ -157,10 +158,10 @@ def build_queue(acc, topics, done_topics):
     ]
 
 
-def poll(api, path, key, done_values, timeout, interval):
-    t0 = time.time()
-    last = None
-    while time.time() - t0 < timeout:
+def poll(api, path, key, done_values, timeout, interval, day=None):
+    t0 = time.monotonic()
+    last = {}
+    while time.monotonic() - t0 < timeout and (day is None or business_day() == day):
         d = api.get(path)
         last = d
         if d.get(key) in done_values:
@@ -251,73 +252,163 @@ def pick_topic(api, name, queue, cfg, log):
     所以宁可多试几个话题，也不要拿没素材的话题去生成——那等于退回纯 LLM 发挥。
     都试不出来时退回第一个话题保底出稿。
     """
-    fallback = None
+    checked = []
+    selected = None
+    n_material = 0
     for _ in range(cfg["topic_tries"]):
-        if not queue:
+        if not queue or business_day() != cfg.get('day', business_day()):
             break
         topic = queue.pop(0)
-        append_state(DONE_TOPICS, topic)  # 试过就记，避免下次重复试同一话题
+        checked.append(topic)
         log(f"[{name}] 试选题：{topic}")
         n_material = ingest_material(api, topic, cfg, log)
         if n_material:
-            return topic, n_material
-        if fallback is None:
-            fallback = topic
-    return fallback, 0
+            selected = topic
+            break
+    if selected is None and checked:
+        selected = checked[0]
+    queue[:0] = [topic for topic in checked if topic != selected]
+    if selected is not None:
+        append_state(DONE_TOPICS, selected)
+    return selected, n_material
 
 
 def make_one_piece(api, acc, queue, cfg, log):
-    """从队列消费话题，直到成功产出并（非空跑时）推送一篇，或队列耗尽。返回是否产出。"""
+    """补齐一篇；未知结果保留进度，重跑先恢复，失败不计成功。"""
     name = acc["name"]
-    while queue:
-        topic, n_material = pick_topic(api, name, queue, cfg, log)
-        if topic is None:
-            break
-        log(f"[{name}] 定稿主题：{topic}"
-            + (f"（{n_material} 篇当下素材）" if n_material else "（无当下素材）"))
-
-        created = api.post("/creations", {"theme": topic, "account_id": acc["id"]})
-        cid = created.get("id")
-        if not cid:
-            log("  创建失败，跳过")
+    day = cfg.get('day', business_day())
+    progress = Progress(STATE_DIR, acc['id'], day, cfg['dry_run'])
+    while business_day() == day:
+        pending = progress.pending
+        drafts = [] if cfg['dry_run'] else read_account_drafts(
+            acc['id'], day, pending['creation_id'] if pending else None)
+        count = progress.data['dry_count'] if cfg['dry_run'] else sum(pushed_today(d, day) for d in drafts)
+        if count >= cfg['pieces']:
+            log(f"[{name}] 当天已完成 {count} 篇，跳过")
+            return 'complete'
+        if pending and pending.get('publishing'):
+            outcome = reconcile_publish(api, acc, pending, drafts, day, log)
+            if outcome not in ('pushed', 'retry', 'blocked'):
+                return None
+            progress.pending = None
+            progress.save()
+            if outcome == 'pushed':
+                return 'pushed'
+            if outcome == 'blocked' and pending['day'] == day:
+                return None
             continue
+        # 兼容旧脚本已发起但尚未完成的当天草稿，避免上线后直接额外出稿。
+        if any(not pushed_today(d, day) and publish_failure_kind(d) != 'retry' for d in drafts):
+            log(f"[{name}] 有未解决的推送记录，暂停补位以免重复")
+            return None
+        if pending and pending['day'] != day:
+            progress.pending = None
+            progress.save()
+            pending = None
+        if not pending:
+            topic, n_material = pick_topic(api, name, queue, cfg, log)
+            if topic is None or business_day() != day:
+                break
+            log(f"[{name}] 定稿主题：{topic}（{n_material} 篇当下素材）")
+            created = api.post('/creations', {'theme': topic, 'account_id': acc['id']})
+            cid = created.get('id')
+            if not cid:
+                log('  创建响应缺少 ID，暂停该号并检查接口')
+                return None
+            pending = {'day': day, 'creation_id': cid, 'n_material': n_material, 'publishing': False}
+            progress.pending = pending
+            progress.save()
+        cid = pending['creation_id']
+        n_material = pending['n_material']
         done = poll(api, f"/creations/{cid}", "status",
-                    {"done", "failed"}, CREATE_POLL_TIMEOUT, CREATE_POLL_INTERVAL)
-        if done.get("status") != "done":
-            log(f"  生成失败({done.get('status')})，跳过")
+                    {"done", "failed"}, CREATE_POLL_TIMEOUT, CREATE_POLL_INTERVAL, day=day)
+        if done.get('status') == 'failed':
+            progress.pending = None
+            progress.save()
+            error = done.get('error_msg') or ''
+            if 'AI role binding error' in error or re.search(r'Error code: (401|403|404|429)\b', error):
+                log(f'[{name}] AI 服务或配置异常，暂停该号；创作 {cid}')
+                return None
+            log(f'  生成失败，换下一篇；创作 {cid}')
             continue
+        if done.get("status") != "done":
+            log(f"  创作仍未完成，已保留进度；创作 {cid}")
+            return None
+        if business_day() != day:
+            break
         title = (done.get("generated_title") or "")[:40]
         if not gate_ok(done, cfg["min_score"], n_material, log):
+            progress.pending = None
+            progress.save()
+            issues = json.dumps((done.get('fact_check') or {}).get('issues', []))
+            if re.search(r'Error code: (401|403|404|429)\b', issues):
+                log(f'[{name}] 审核服务不可用，暂停该号；创作 {cid}')
+                return None
             continue
         if cfg["dry_run"]:
             fc = done.get("fact_check") or {}
+            progress.pending = None
+            progress.data['dry_count'] += 1
+            progress.save()
             log(f"  ✓ 过闸门(score={fc.get('score')})｜DRY_RUN 不推｜{title}")
             return "dry"
-
-        # 推送到公众号草稿箱（复用桥接端点）
-        pub = api.post(f"/creations/{cid}/publish-to-wechat", {})
-        did = pub.get("id")
-        if not did:
-            log(f"  ! 推送结果未知，需核实原任务｜{title}")
+        # 先落盘再发送，避免服务端已处理但客户端没有收到响应时重复提交。
+        pending['publishing'] = True
+        progress.save()
+        try:
+            pub = api.post(f'/creations/{cid}/publish-to-wechat', {})
+            pending['draft_id'] = pub.get('id')
+            progress.save()
+        except Exception as exc:
+            log(f'  推送响应异常({type(exc).__name__})，回查原任务；创作 {cid}')
+        drafts = read_account_drafts(acc['id'], day, cid)
+        outcome = reconcile_publish(api, acc, pending, drafts, day, log)
+        if outcome not in ('pushed', 'retry', 'blocked'):
             return None
-        pushed = poll(api, f"/drafts/{did}", "status",
-                      {"published_to_wechat", "failed"},
-                      PUBLISH_POLL_TIMEOUT, PUBLISH_POLL_INTERVAL)
-        if pushed.get("status") == "published_to_wechat":
-            log(f"  ✓✓ 已进草稿箱｜{title}")
-            return "pushed"
-        error = pushed.get('error_msg') or ''
-        if pushed.get('status') == 'failed' and re.match(
-                r'WeChatDraftError: errcode=-?[1-9]\d*,', error):
-            log(f"  ✗ 微信明确拒绝，换下一篇：{error[:80]}｜{title}")
-            continue
-        log(f"  ! 推送结果未知，需核实原任务：{error[:80]}｜{title}")
-        return None
-    log(f"[{name}] 无更多可用话题")
+        progress.pending = None
+        progress.save()
+        if outcome == 'pushed':
+            return 'pushed'
+        if outcome == 'blocked':
+            return None
+    log(f"[{name}] 候选耗尽或已跨日，今日目标未完成")
     return None
 
 
-def main():
+def reconcile_publish(api, acc, pending, drafts, day, log):
+    matches = [d for d in drafts if d['source_creation_id'] == pending['creation_id']]
+    if not matches:
+        log(f"[{acc['name']}] 推送结果待人工核实；创作 {pending['creation_id']}，不重复发起；"
+            f"进度在 {STATE_DIR}/daily-live-{acc['id']}.json，按恢复文档处理")
+        return None
+    succeeded = False
+    blocked = False
+    for draft in matches:
+        if draft['status'] not in ('published_to_wechat', 'failed'):
+            draft = poll(api, f"/drafts/{draft['id']}", 'status', {'published_to_wechat', 'failed'},
+                         PUBLISH_POLL_TIMEOUT, PUBLISH_POLL_INTERVAL, day=day)
+        if pushed_today(draft, day):
+            log(f"[{acc['name']}] 已确认进入今天草稿箱；草稿 {draft['id']}")
+            succeeded = True
+            continue
+        if draft.get('status') == 'published_to_wechat':
+            continue  # 已在其他日期成功，不会再推送这个创作。
+        kind = publish_failure_kind(draft)
+        if kind == 'blocked':
+            blocked = True
+        elif kind != 'retry':
+            log(f"[{acc['name']}] 推送待核实，保留进度；创作 {pending['creation_id']}，按恢复文档处理")
+            return None
+    if succeeded:
+        return 'pushed'
+    if blocked:
+        log(f"[{acc['name']}] 微信配置或配额阻断，原请求已明确失败；本次暂停，次日可重新选题")
+        return 'blocked'
+    log(f"[{acc['name']}] 原推送已终结，继续下一篇")
+    return 'retry'
+
+
+def run_daily():
     load_env_file(os.path.join(HERE, ".env"))
     cfg = {
         "pieces": int(env("AUTO_PIECES_PER_ACCOUNT", "1")),
@@ -327,7 +418,10 @@ def main():
         # 实测有可抓正文的话题是少数（科技/公司/政策类有主流媒体报道页，
         # 社会新闻多半只有自媒体覆盖），试多几个才捞得到；搜索不烧 LLM。
         "topic_tries": int(env("AUTO_TOPIC_TRIES", "10")),
+        "day": business_day(),
     }
+    if cfg['pieces'] < 1 or cfg['topic_tries'] < 1 or not 0 <= cfg['min_score'] <= 100:
+        raise ValueError('每日篇数、选题次数必须为正数，审核阈值须在 0 到 100 之间')
     api = Api(env("API_BASE", "https://wechat.azhefuye.online/api"),
               env("ADMIN_USERNAME", "admin"), env("ADMIN_PASSWORD"))
 
@@ -362,37 +456,59 @@ def main():
 
     done_topics = load_state(DONE_TOPICS)
     queues = {a["id"]: build_queue(a, topics, done_topics) for a in accounts}
-    made = {a["id"]: 0 for a in accounts}
-    outcomes = []
+    stopped = set()
     acc_by_id = {a["id"]: a for a in accounts}
 
     # 轮转：每一轮给每个号尝试产出一篇，机会均等。
     for _round in range(cfg["pieces"]):
         for aid in queues:
-            if made[aid] >= cfg["pieces"]:
+            if aid in stopped:
                 continue
-            outcome = make_one_piece(api, acc_by_id[aid], queues[aid], cfg, log)
-            if outcome in ("pushed", "dry"):
-                made[aid] += 1
-                outcomes.append(outcome)
+            try:
+                outcome = make_one_piece(api, acc_by_id[aid], queues[aid], cfg, log)
+                if outcome not in ('pushed', 'dry'):
+                    stopped.add(aid)
+            except Exception as exc:
+                # 单号异常不能跳过其余公众号；不输出可能带凭据的完整异常 URL。
+                log(f"[{acc_by_id[aid]['name']}] 本次暂停：{type(exc).__name__}，已保存的任务下次优先恢复")
+                stopped.add(aid)
 
-    # 分开统计："产出" 不等于 "进了草稿箱"。两者混讲会让被闸门拦下的稿子看起来
-    # 像已推送，真出问题时日报反而掩盖了它。
-    total = sum(made.values())
-    pushed_n = outcomes.count("pushed")
-    gated_n = outcomes.count("gated")
-    failed_n = outcomes.count("push_failed")
-    parts = [f"本次共产出 {total} 篇"]
-    if cfg["dry_run"]:
-        parts.append("DRY_RUN 未推送")
-    else:
-        parts.append(f"已进草稿箱 {pushed_n} 篇")
-        if gated_n:
-            parts.append(f"闸门拦下 {gated_n} 篇")
-        if failed_n:
-            parts.append(f"推送失败 {failed_n} 篇")
-    log("\n" + "，".join(parts))
+    incomplete = 0
+    attention = 0
+    for acc in accounts:
+        try:
+            if cfg['dry_run']:
+                count = Progress(STATE_DIR, acc['id'], cfg['day'], True).data['dry_count']
+            else:
+                pending = Progress(STATE_DIR, acc['id'], cfg['day'], False).pending
+                drafts = read_account_drafts(acc['id'], cfg['day'], pending['creation_id'] if pending else None)
+                count = sum(pushed_today(d, cfg['day']) for d in drafts)
+                unresolved = [d['id'] for d in drafts if d['status'] != 'published_to_wechat'
+                              and publish_failure_kind(d) == 'unknown']
+                unknown_request = pending and pending.get('publishing') and not any(
+                    d['source_creation_id'] == pending['creation_id'] for d in drafts)
+                if unresolved or unknown_request:
+                    log(f"[{acc['name']}] 另有待核实推送：{unresolved or pending['creation_id']}，按恢复文档处理")
+                    attention += 1
+            label = '模拟通过（未推送）' if cfg['dry_run'] else '已进草稿箱'
+            log(f"[{acc['name']}] {cfg['day']} {label} {count}/{cfg['pieces']} 篇")
+            incomplete += count < cfg['pieces']
+        except Exception as exc:
+            log(f"[{acc['name']}] 无法核实当天结果：{type(exc).__name__}")
+            incomplete += 1
+    log(f"\n未完成 {incomplete} 个公众号，另有 {attention} 个公众号推送待核实"
+        if incomplete or attention else '\n所有启用公众号已完成当日目标')
+    return 1 if incomplete or attention or not accounts else 0
+
+
+def main():
+    try:
+        with single_run(STATE_DIR):
+            return run_daily()
+    except BlockingIOError:
+        print('已有自动出稿进程运行，本次跳过', flush=True)
+        return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
