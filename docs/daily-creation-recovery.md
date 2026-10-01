@@ -8,6 +8,7 @@
 
 本次域名迁移将该目录 `.env` 的 `API_BASE` 更新为 `https://wechat.jo-personal.online/api`，
 保留 cron、运行锁、选题状态、账号及密钥，不手动触发真实出稿或推送。
+仓库 `ops/gzh-digest/auto_pipeline.py` 的缺省 `API_BASE` 同步新入口，只修改 URL 字符串。
 新入口只读验活及最终观测状态见 [域名迁移记录](DOMAIN_MIGRATION.md)。
 
 ## 行为约定

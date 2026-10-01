@@ -422,7 +422,7 @@ def run_daily():
     }
     if cfg['pieces'] < 1 or cfg['topic_tries'] < 1 or not 0 <= cfg['min_score'] <= 100:
         raise ValueError('每日篇数、选题次数必须为正数，审核阈值须在 0 到 100 之间')
-    api = Api(env("API_BASE", "https://wechat.azhefuye.online/api"),
+    api = Api(env("API_BASE", "https://wechat.jo-personal.online/api"),
               env("ADMIN_USERNAME", "admin"), env("ADMIN_PASSWORD"))
 
     lines = []

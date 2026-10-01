@@ -6,6 +6,7 @@ edge 反代（自动 HTTPS）→ 验活。现行入口为 `https://wechat.jo-per
 
 2026-10-01 新入口 HTTPS 验活通过：首页 `/`、`/api/health` 返回 200，
 未携带登录凭据访问 `/api/accounts` 返回 401。共享 Caddy 同时保留旧入口，
+主操作者真实登录与带 token 读取账号列表均返回 200；
 认证边界不变；迁移未重启业务容器、未手动触发定时任务。
 详细结果、环境变量边界与最终观测状态见 [域名迁移记录](docs/DOMAIN_MIGRATION.md)。
 
