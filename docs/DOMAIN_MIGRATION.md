@@ -12,7 +12,7 @@
 | 项目 | 现行值与边界 |
 |---|---|
 | 新入口 | `https://wechat.jo-personal.online` |
-| 旧入口 | `https://wechat.azhefuye.online`，保留兼容访问 |
+| 旧入口 | 保留wechat.azhefuye.online旧Host配置；旧域名公网已失效，正常访问使用新域名 |
 | 应用目录 | `/opt/wechat-batch-rewriter` |
 | 共享反代 | `/opt/mili-shouzhang/infra/edge/Caddyfile`，容器 `edge-caddy` |
 | 双 Host upstream | 新旧域名同指 `wechat-batch-rewriter-web-1:80` |
