@@ -2,6 +2,12 @@
 
 完整的部署、配置、运维指南。从 0 到 1 把这个工具跑起来。
 
+当前生产入口为 `https://wechat.jo-personal.online`（`101.42.185.88`）。
+2026-10-01 新入口 HTTPS、首页与健康接口验活通过；未登录访问 `/api/accounts` 返回 401。
+现行生产使用全机共享 `edge-caddy`，保留新旧双 Host；
+本次迁移没有重启业务或触发出稿/推送任务，15 分钟最终观测待回写。
+迁移指定环境变量与保护边界见 [域名迁移记录](docs/DOMAIN_MIGRATION.md)。
+
 ## 1. 系统要求
 
 | 组件 | 最低版本 | 说明 |
@@ -55,6 +61,7 @@ curl http://localhost/api/health   # 应返回 {"status":"ok"}
 | `ENCRYPTION_KEY` | Fernet 加密 key（**丢了所有 AppSecret 不可恢复**） | 见步骤 2 |
 | `IMAGE_STORAGE_DIR` | 抓取图片存储目录（容器内） | `/data/images`（默认对应 `image_data` volume） |
 | `REWRITE_BATCH_MAX` | 单次提交最多多少篇 | `20` |
+| `DOMAIN` | 生产入口域名 | `wechat.jo-personal.online` |
 
 **安全提示**：
 - `ENCRYPTION_KEY` 一旦设定不要再改，否则历史加密的 AppSecret/AI key 全部解不出来。
@@ -294,6 +301,8 @@ docker compose exec postgres psql -U postgres -d wechat_rewriter \
 
 bundled web 容器只跑 HTTP。生产建议在前面加 Caddy：
 
+以下为独立部署示例；现行生产共享入口见 §14，不得与 `edge-caddy` 争用 80/443。
+
 ```yaml
 # docker-compose.override.yml
 services:
@@ -392,7 +401,7 @@ docker compose down -v
 ### 14.1 一次性 bootstrap
 
 ```bash
-# 在服务器上，假设域名 wechat.azhefuye.online 已解析到这台机
+# 仅首次安装新实例：假设 wechat.jo-personal.online 已解析到这台机
 ssh you@your-server
 git clone git@github.com:你/wechat-batch-rewriter.git /opt/wechat-batch-rewriter
 cd /opt/wechat-batch-rewriter
@@ -416,7 +425,11 @@ chmod +x deploy.sh backup.sh
 ./deploy.sh
 ```
 
-第一次 Caddy 申请证书大概要 30 秒 — 1 分钟。等 `https://wechat.azhefuye.online` 返回登录页就成功了。
+第一次 Caddy 申请证书大概要 30 秒 — 1 分钟。等 `https://wechat.jo-personal.online` 返回登录页，
+再核对 `/api/health` 为 200、未登录 `/api/accounts` 为 401。
+
+现有生产实例位于 `/opt/wechat-batch-rewriter`，域名迁移不重复 bootstrap，
+不覆盖现有 `.env`、生成新密钥、初始化管理员或重建数据库。
 
 **注意**：在 Windows 上克隆后直接推到服务器时，`deploy.sh` 和 `backup.sh` 的执行权限位不会自动保留。在服务器上 clone 后务必手动 `chmod +x deploy.sh backup.sh`。
 
@@ -441,14 +454,14 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 `docker-compose.prod.yml` 在基础文件之上做以下覆盖：
 - 为所有服务加 `restart: unless-stopped`
 - 移除 `api` 和 `web` 的 host 端口暴露（Caddy 在内部 docker 网络直连）
-- 新增 `caddy` 服务（80/443）+ `caddy_data`/`caddy_config` 卷
+- `web` 接入外部 `edge` 网络，由共享 `edge-caddy` 提供 80/443；本项目不再启动自带 Caddy
 
-`Caddyfile` 配置：
+共享 `/opt/mili-shouzhang/infra/edge/Caddyfile` 现行配置：
 - 自动申请 Let's Encrypt 证书（需要 80/443 对外可达）
-- 反代到 `web:80`（web 容器内 nginx 再反代 `/api/*` 到 api）
+- 新旧双 Host 反代到 `wechat-batch-rewriter-web-1:80`（web 容器内 nginx 再反代 `/api/*` 到 api）
 - 开启 gzip/zstd 压缩
 - 注入标准安全响应头
-- 访问日志写入 `caddy_data` 卷（容器内 `/data/access.log`）
+- 保留各站点日志与认证配置；仓库根目录旧 `Caddyfile` 不是现行共享入口配置
 
 ### 14.4 备份
 

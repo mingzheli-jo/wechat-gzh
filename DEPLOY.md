@@ -2,7 +2,12 @@
 
 后端通过 Docker 部署，**一个脚本 `./deploy.sh` 全自动**完成：配镜像加速器 →
 生成密钥 → 构建 → 启动 → 自动迁移数据库 → 首次引导管理员密码 → 接入全机共享
-edge 反代（自动 HTTPS）→ 验活。对外只暴露 `https://wechat.azhefuye.online`。
+edge 反代（自动 HTTPS）→ 验活。现行入口为 `https://wechat.jo-personal.online`。
+
+2026-10-01 新入口 HTTPS 验活通过：首页 `/`、`/api/health` 返回 200，
+未携带登录凭据访问 `/api/accounts` 返回 401。共享 Caddy 同时保留旧入口，
+认证边界不变；迁移未重启业务容器、未手动触发定时任务。
+详细结果、环境变量边界与最终观测状态见 [域名迁移记录](docs/DOMAIN_MIGRATION.md)。
 
 > 详尽的逐项配置说明见 `DEPLOYMENT.md`；本文件是与「米粒手账」同款的一键流程。
 
@@ -10,14 +15,15 @@ edge 反代（自动 HTTPS）→ 验活。对外只暴露 `https://wechat.azhefu
 
 ## 0. 前置条件（只需确认一次）
 
-1. **DNS**：`wechat.azhefuye.online` 的 A 记录指向服务器公网 IP（`dig +short wechat.azhefuye.online` 能返回 IP）。
+1. **DNS**：`wechat.jo-personal.online` 的 A 记录指向 `101.42.185.88`（`dig +short wechat.jo-personal.online` 能返回该 IP）。
 2. **防火墙 / 安全组**：放行入站 **80** 和 **443**。
 3. **装 Docker**（若未装）：`curl -fsSL https://get.docker.com | sh`。
 4. **共享入口 edge-caddy 已运行**（全机唯一占用 80/443，路由各站点）：
    ```bash
    cd <米粒手账仓库>/infra/edge && docker compose up -d
    ```
-   它的 `Caddyfile` 已含 `wechat.azhefuye.online → wechat-batch-rewriter-web-1:80`。
+   它的 `Caddyfile` 以新旧双 Host 转发到 `wechat-batch-rewriter-web-1:80`。
+   共享配置位于 `/opt/mili-shouzhang/infra/edge/Caddyfile`，保留其他站点与认证配置。
 
 ---
 
@@ -39,13 +45,16 @@ chmod +x deploy.sh
    - 非交互可用：`ADMIN_PASSWORD=你的密码 ./deploy.sh`
 6. 启动 postgres / redis / api / worker / beat / web；api 启动时自动 `alembic upgrade head`；
 7. 把 web 接入 `edge` 网络并重载 edge-caddy 路由；
-8. 公网验活 `https://wechat.azhefuye.online/`。
+8. 公网验活 `https://wechat.jo-personal.online/`。
 
 结尾打印 `✓ 部署成功！` 即完成。证书首签需十几秒，未过时等 30 秒重试
-`curl -i https://wechat.azhefuye.online/`。
+`curl -i https://wechat.jo-personal.online/`。
 
 > ⚠️ `ENCRYPTION_KEY` 一旦丢失，已加密的 AI Key / 公众号 AppSecret 不可恢复。
 > 首次部署后请妥善备份 `.env`。
+> 本次域名迁移只修改现有 `/opt/wechat-batch-rewriter/.env` 的 `DOMAIN` 和
+> `/home/ubuntu/gzh-digest/.env` 的 `API_BASE`，不重建配置或密钥；
+> `./deploy.sh` 会构建并启动服务，不是本次只切入口的执行步骤。
 
 ---
 
@@ -95,5 +104,5 @@ SKIP_PULL=1 ./deploy.sh
 | 验活 TLS 失败 | DNS 未指向本机 / 80 443 未放行 / edge-caddy 未起；`docker logs edge-caddy` |
 | api 一直起不来 | `C logs api` 看 alembic 迁移或启动校验报错（弱 JWT/缺密钥会拒绝启动）|
 | 502 Bad Gateway | api/web 没起来；`C ps` 确认状态；web 是否接入 edge 网络 |
-| 页面能开但接口 401 | 管理员密码错；可 `ADMIN_PASSWORD=新密码`，删掉 .env 里 `ADMIN_PASSWORD_HASH` 后重跑 |
+| 页面能开但接口 401 | 未登录访问受保护接口应为 401；先检查 token 与登录状态，域名迁移不重置管理员密码 |
 | 域名转发错站点 | edge `Caddyfile` 必须用唯一容器名 `wechat-batch-rewriter-web-1:80` |

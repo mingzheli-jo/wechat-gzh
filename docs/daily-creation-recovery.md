@@ -6,6 +6,10 @@
 
 入口是服务器 ubuntu 的 cron：08:30 执行 `/home/ubuntu/gzh-digest/run-auto.sh`，调用 `auto_pipeline.py`。修复源码纳入 `ops/gzh-digest/`，继续复用服务器原有 `digest.py`、`find_news.py`、`.env`、选题状态和 cron。无页面、样式或 API 变更。
 
+本次域名迁移将该目录 `.env` 的 `API_BASE` 更新为 `https://wechat.jo-personal.online/api`，
+保留 cron、运行锁、选题状态、账号及密钥，不手动触发真实出稿或推送。
+新入口只读验活及最终观测状态见 [域名迁移记录](DOMAIN_MIGRATION.md)。
+
 ## 行为约定
 
 - 生成明确失败、文章缺标题/正文、审核低分或审核结果无效，均保留原创作记录并换下一候选，不计入当天名额。

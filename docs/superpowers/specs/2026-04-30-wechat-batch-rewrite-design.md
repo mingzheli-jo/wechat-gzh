@@ -388,6 +388,10 @@ result = await registry.role("writer").chat(messages, ...)
 
 ## 8. 部署
 
+现行生产入口为 `https://wechat.jo-personal.online`，共享 `edge-caddy` 保留新旧双 Host，
+转发至 `wechat-batch-rewriter-web-1:80`。域名迁移只更新指定环境变量与入口，
+不改业务、UI、认证契约、数据和调度；验活及风险见 [域名迁移记录](../../DOMAIN_MIGRATION.md)。
+
 ### 8.1 docker-compose.yml 关键服务
 
 ```yaml
